@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>CONFIG_site_name</title>
+		<meta name="description" content="FuzeHttp example.">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta charset="utf-8">
+		<link rel="icon" type="image/x-icon" href="CONFIG_favicon_url">
+		<link rel="stylesheet" href=FILE_"static/styles.css">
+	</head>
+	<body>
+		<!--Navbar can go here-->
+		<main>
+			<div id="header_bar" class="ToolBar WithBorders">
+				<b id="WebsiteName">CONFIG_site_name</b>
+				<a id="manage_server_button" href="manage_server.html" class="Button ToolBarButton" style="display: none;">Manage server</a>
+				<div class="FlexSeparator"></div>
+				<a id="registration_link" class="Button ToolBarButton RightAligned" href="registration.html" style="display: none">Log-in or Register</a>
+				<div id="logged_in_indicator" style="display: none" class="RightAligned">
+					Logged in as&nbsp;<b id="logged_in_as_username">Someone</b>
+				</div>
+				<a id="change_password_link" class="Button ToolBarButton" href="change_password.html" style="display: none">Change password</a>
+				<button id="logout_button" onclick="logoutAction()" class="Button ToolBarButton" style="display: none">Logout</button>
+				<a id="header_bar_mediaboard_link" href="https://fuze.page/software/fuzehttp/">FuzeHttp (coming soon)</a>
+			</div>
+		</main>
+	</body>
+<script>
+
+if (localStorage.getItem("logged_in") === "true") {
+	displayClientAsLoggedIn();
+}
+else {
+	registration_link.style["display"] = "inherit";
+}
+
+function displayClientAsLoggedIn() {
+	let account_username = localStorage.getItem("account_username");
+	logged_in_as_username.textContent = account_username;
+	logout_button.style["display"] = "inherit";
+	logged_in_indicator.style["display"] = "inherit";
+	change_password_link.style["display"] = "inherit";
+}
+
+function displayClientAsLoggedOut() {
+	logout_button.style["display"] = "none";
+	logged_in_indicator.style["display"] = "none";
+	registration_link.style["display"] = "inherit";
+	change_password_link.style["display"] = "none";
+	localStorage.removeItem("account_username");
+	localStorage.setItem("logged_in", "false");
+}
+
+async function logoutAction() {
+	displayClientAsLoggedOut();
+	const fetch_response = await fetch("./registration/logout", {method: "POST"});
+	if (fetch_response && fetch_response.ok) {
+		getClientInfo();
+	}
+	else {
+		console.error("Couldn't log out for one reason or another");
+	}
+}
+
+async function getClientInfo() {
+	const response = await fetch("api/user/client");
+	console.log(response);
+	if (response.ok) {
+		await response.json().then(response_json => {
+			console.log(response_json);
+			if (!response_json["has_cookie"] && localStorage.getItem("logged_in") === "true") {
+				displayClientAsLoggedOut();
+			}
+			manage_server_button.style["display"] = response_json["server_permissions"]["manage_permissions"] === true ? "inherit" : "none";
+			// reply_container.style["display"] = response_json["server_permissions"]["create_thread"] === true ? "inherit" : "none";
+		});
+	}
+}
+getClientInfo();
+</script>
+</html>

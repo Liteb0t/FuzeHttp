@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Manage server - CONFIG_site_name</title>
+		<meta name="description" content="Fuze Mediaboard is a fast, modern messageboard.">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta charset="utf-8">
+		<link rel="icon" type="image/x-icon" href="CONFIG_favicon_url">
+		<link rel="stylesheet" href="static/styles.css">
+		<link rel="stylesheet" href="static/permissions.css">
+	</head>
+	<body>
+		<!--Navbar can go here-->
+		<main>
+			<div class="ControlPanelGrid">
+				<fieldset id="control_panel_tab_container">
+					<legend>Control panel</legend>
+					<nav class="MetroList">
+						<li class="ToolBar"><button class="ToolBarButton" onclick="showTab(manage_permissions_container);">Manage permissions</button></li>
+						<li class="ToolBar"><button class="ToolBarButton" onclick="showTab(manage_groups_container);">Manage groups</button></li>
+						<li class="ToolBar"><button class="ToolBarButton" onclick="showTab(manage_users_container);">Manage users</button></li>
+					</nav>
+				</fieldset>
+				<!-- Manage permissions -->
+				<div id="manage_permissions_container">
+					<h2>Manage permissions - CONFIG_site_name</h2>
+					<div class="PermissionSettingsGrid">
+						<fieldset class="Groups">
+							<legend>Groups</legend>
+							<button id="permission_settings_add_group_button">Add group</button>
+							<dialog id="permission_settings_add_group_dialog" closedby="any">
+								<h3>Set permissions for group</h3>
+								<p>Click on a group to modify its permissions here.</p>
+								<ol id="permission_settings_add_group_dialog_group_list" class="MetroList"></ol>
+								<div class="ToolBar"><button onclick="permission_settings_add_group_dialog.close()">Close</button></div>
+							</dialog>
+							<ol id="permission_settings_group_list_element" class="MetroList"></ol>
+						</fieldset>
+						<fieldset class="Users">
+							<legend>Users</legend>
+							<button id="permission_settings_add_user_button">Add user</button>
+							<dialog id="permission_settings_add_user_dialog" closedby="any">
+								<h3>Set permissions for user</h3>
+								<p>Click on a user to modify its permissions here.</p>
+								<ol id="permission_settings_add_user_dialog_user_list" class="MetroList"></ol>
+								<div class="ToolBar"><button onclick="permission_settings_add_user_dialog.close()">Close</button></div>
+							</dialog>
+							<ul id="permission_settings_user_list_element" class="MetroList"></ul>
+						</fieldset>
+						<fieldset class="Permissions">
+							<legend>Permissions<span id="selected_permission_user_or_group_indicator"></span></legend>
+							<ol id="permission_settings_permission_list_element" class="MetroList"></ol>
+						</fieldset>
+					</div>
+				</div>
+				<!-- Manage groups -->
+				<div id="manage_groups_container" style="display: none">
+					<h2>Manage groups - CONFIG_site_name</h2>
+					<div class="ToolBar">
+						<button onclick="create_group_dialog.showModal()">New group</button>
+						<div id="selected_group_indicator_container" class="RightAligned">
+							Group:&nbsp;<b id="selected_group_indicator">None selected</b>
+						</div>
+						<button id="group_rename_button" disabled style="display: none">Rename</button>
+						<button id="group_delete_button" disabled>Delete</button>
+					</div>
+					<dialog id="create_group_dialog" closedby="any">
+						<h2>Create group</h2>
+						<form action="" method="POST">
+							<label for="create_group_form_group_name">Name</label>
+							<input type="text" id="create_group_form_group_name" name="group-name" minlength="1" maxlength="CONFIG_group_max_name">
+						</form>
+						<div class="ToolBar">
+							<input type="button" value="OK" onclick="group_manager.group_list.createNewGroup();create_group_dialog.close()"><button onclick="create_group_dialog.close()">Cancel</button>
+						</div>
+					</dialog>
+					<div class="GroupManagerGrid">
+						<fieldset><legend>Groups</legend>
+							<ol id="group_list_element" class="MetroList">Loading...</ol>
+						</fieldset>
+						<fieldset><legend>Members</legend>
+							<ul id="member_list_element" class="MetroList">Loading...</ul>
+						</fieldset>
+					</div>
+				</div>
+				<!-- Manage users -->
+				<div id="manage_users_container" style="display: none">
+					<h2>Manage users - CONFIG_site_name</h2>
+					<ul id="user_list_element" class="MetroList"></ul>
+				</div>
+			</div>
+		</main>
+		<dialog id="add_user_to_group_dialog" closedby="any">
+			<h2>Add user to groups</h2>
+			<p>Select one or more groups below, to add <b id="add_user_to_group_dialog_username">this user</b> to.</p>
+			<fieldset id="add_user_to_group_dialog_group_list_element"><legend>Groups</legend>
+			</fieldset>
+			<div class="ToolBar"><button id="add_user_to_group_dialog_ok_button">OK</button><button onclick="add_user_to_group_dialog.close()">Cancel</button></div>
+		</dialog>
+		<dialog id="loading_dialog"><p>Loading. Please wait...</p></dialog>
+		<dialog id="error_dialog" closedby="any">
+			<h2>Error</h2>
+			<p id="error_message">Something happened.</p>
+			<div class="ToolBar"><button onclick="error_dialog.close()">&#x1F5D9; Close</button></div>
+		</dialog>
+	</body>
+<style>
+.ControlPanelGrid {
+	display: grid;
+	gap: 10px;
+	min-height: 100vh;
+	padding: 10px;
+	box-sizing: border-box;
+	@media (width >= 35rem) {
+		grid-template-columns: 14em 1fr;
+	}
+	@media (width < 35rem) {
+		grid-template-columns: 1fr;
+	}
+}
+</style>
+<script src="./static/permissions.js"></script>
+<script>
+"use strict";
+loading_dialog.showModal();
+
+const control_panel_tabs = [manage_permissions_container, manage_groups_container, manage_users_container];
+function showTab(element) {
+	for (let tab of control_panel_tabs) {
+		if (tab.id !== element.id) {
+			tab.style["display"] = "none";
+		}
+	}
+	element.style["display"] = "initial";
+}
+
+let permission_settings = new PermissionSettings(permission_settings_user_list_element, permission_settings_group_list_element, permission_settings_permission_list_element, selected_permission_user_or_group_indicator, "server/");
+let the_user_list = new ManageUsersUserList(user_list_element);
+let group_manager = new GroupManager(group_list_element, member_list_element, group_delete_button, group_rename_button);
+user_list_factory.addUserList(the_user_list);
+let add_user_to_groups_group_list = new addUserToGroupsGroupList(add_user_to_group_dialog, add_user_to_group_dialog_group_list_element, add_user_to_group_dialog_ok_button);
+group_list_factory.addGroupList(add_user_to_groups_group_list);
+
+async function initialLoad() {
+	await permission_settings.refreshPermissions();
+	await user_list_factory.refreshUsers();
+	// user list and permission settings must be loaded before groups
+	await group_list_factory.refreshGroups();
+	loading_dialog.close();
+}
+initialLoad();
+
+</script>
+</html>
