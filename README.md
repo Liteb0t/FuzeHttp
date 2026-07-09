@@ -1,5 +1,5 @@
 # ![FUZE](https://fuze.page/static/fuze-min-hover.png) Http
-Web framework based on [Boost::Beast](https://www.boost.org/library/latest/beast/). This was originally part of [Fuze Mediaboard](https://github.com/Liteb0t/) before the demerger.\
+Web framework based on [Boost::Beast](https://www.boost.org/library/latest/beast/). This was originally part of [Fuze Mediaboard](https://github.com/Liteb0t/Mediaboard) before the demerger.\
 \
 The "example" subdirectory contains a project with all the necessary boilerplate. Feel free to copy and use that as a starting point.
 ### Building

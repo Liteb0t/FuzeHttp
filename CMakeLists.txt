@@ -13,6 +13,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread") # Required on FreeBSD
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1) # writes compile_commands.json for clangd to use
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(SODIUM_DISABLE_TESTS ON)
+option(FUZEHTTP_EXAMPLE "Build the FuzeHttp example project (may conflict with existing projects)" ON)
 option(FUZEDBI_USE_POSTGRES "Use PostgreSQL interface instead of SQLite" OFF)
 include(GNUInstallDirs)
 
@@ -58,7 +59,12 @@ target_link_libraries(FuzeHttp
 # )
 add_subdirectory(dependencies)
 add_subdirectory(source)
-add_subdirectory(example)
+if (FUZEHTTP_EXAMPLE)
+  message("Building with example project included. Executable will be located at ${CMAKE_BINARY_DIR}/example")
+  add_subdirectory(example)
+else()
+  message("NOT including example project.")
+endif()
 # install(
 #   TARGETS MediaboardServer
 #   FILE_SET HEADERS
