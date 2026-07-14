@@ -290,28 +290,30 @@ int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHtt
 		else
 			manifest_file_existed = false;
 		// create manifest JSON OBJECT
-		boost::json::object manifest_obj;
-		boost::json::object manifest_frontend_json_obj;
+		// All frontend files except GENERATED are added to manifest. To detect changes the manifest JSON in memory and the previously used one in the filesystem are hashed; if the hashes are not equal, we know there was a change.
+		boost::json::object manifest_obj, manifest_frontend_json_obj, manifest_options_json_obj;
 		for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
 			if (!std::filesystem::is_regular_file(frontend_file))
 				continue;
 			std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
-			// TODO fix bug where two starts are required to add to files_generated_from_templates
-			if (fileNameEndsWith(frontend_file_path.filename(), ".GENERATED")) {
-				this->files_generated_from_templates.emplace(
-					frontend_file_path.string().substr(0, frontend_file_path.string().rfind(".GENERATED")) +
-					frontend_file_path.string().substr(frontend_file_path.string().rfind('.')));
-			}
-			else if (!this->manifest_frontend_etags.contains(frontend_file_path.string())) {
-				std::string new_etag = getEtagFromFile(frontend_file);
-				if (!fileNameEndsWith(frontend_file.path().filename(), ".template"))
-					this->manifest_frontend_etags.emplace(frontend_file_path.string(), new_etag);
-				manifest_frontend_json_obj.emplace(frontend_file_path.string(), new_etag);
+			if (!this->manifest_frontend_etags.contains(frontend_file_path.string())) {
+				if (!fileNameEndsWith(frontend_file.path().filename(), ".GENERATED")) {
+					std::string new_etag = getEtagFromFile(frontend_file);
+					if (!fileNameEndsWith(frontend_file.path().filename(), ".template"))
+						this->manifest_frontend_etags.emplace(frontend_file_path.string(), new_etag);
+					manifest_frontend_json_obj.emplace(frontend_file_path.string(), new_etag);
+				}
 			}
 		}
-		std::string config_hash = getHash<boost::hash2::md5_128>(std::to_string(std::filesystem::last_write_time(config_file_path).time_since_epoch().count()));
-		std::string new_frontend_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_frontend_json_obj));
-		std::string new_combined_hash = getHash<boost::hash2::md5_128>(config_hash + new_frontend_hash);
+		for (auto option : additional_options) {
+			if (option->includeInFrontend())
+				manifest_options_json_obj.emplace(option->token, option->string());
+		}
+		// std::string config_hash = getHash<boost::hash2::md5_128>(std::to_string(std::filesystem::last_write_time(config_file_path).time_since_epoch().count()));
+		std::string options_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_options_json_obj));
+		std::string frontend_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_frontend_json_obj));
+		this->frontend_etag = frontend_hash;
+		std::string new_combined_hash = getHash<boost::hash2::md5_128>(options_hash + frontend_hash);
 		manifest_obj.emplace("frontend", manifest_frontend_json_obj);
 		manifest_obj.emplace("combined_hash", new_combined_hash);
 		std::string new_json_as_str = boost::json::serialize(manifest_obj);
@@ -331,6 +333,18 @@ int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHtt
 			FuzeHttp::applyOptionsToTemplates(additional_options, document_root, manifest_frontend_etags);
 		else
 			std::println("No changes to frontend detected.");
+
+		for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
+			if (!std::filesystem::is_regular_file(frontend_file))
+				continue;
+			std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
+			// TODO fix bug where two starts are required to add to files_generated_from_templates
+			if (fileNameEndsWith(frontend_file_path.filename(), ".GENERATED")) {
+				this->files_generated_from_templates.emplace(
+					frontend_file_path.string().substr(0, frontend_file_path.string().rfind(".GENERATED")) +
+					frontend_file_path.string().substr(frontend_file_path.string().rfind('.')));
+			}
+		}
 	}
 	catch (const std::exception& exception) {
 		std::println(std::cerr, "An error occured when generating frontend files: {}", exception.what());

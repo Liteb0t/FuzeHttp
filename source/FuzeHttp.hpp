@@ -331,6 +331,8 @@ public:
 		std::string decoded_url = FuzeHttp::getDecodedURL(req.target());
 		std::string_view path_name = FuzeHttp::getPathName(decoded_url);
 		std::cout << "[Controller] path_name: " << path_name << std::endl;
+		if (path_name.ends_with('/'))
+			path_name = path_name.substr(0, path_name.length() - 1);
 
 		std::unordered_set<int> matched_views = all_views;
 		std::string_view section;

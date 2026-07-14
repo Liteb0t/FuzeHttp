@@ -72,6 +72,7 @@ public:
 	boost::program_options::variables_map variable_map;
 	const unsigned short server_port = 8300;
 	unsigned int parser_body_size_limit_mb;
+	std::string frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
 private:
 	// FuzeHttp::State* state;
 	const unsigned short threads = 1;
