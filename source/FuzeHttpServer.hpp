@@ -10,14 +10,14 @@ class Server {
 public:
 	Server();
 	int processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& current_version, const std::string& data_folder_name);
-	template<class StateType>
+	template<class StateType, class WebsocketSessionType = WebsocketSession>
 	void run(StateType* state) {
 		auto address = boost::asio::ip::make_address("127.0.0.1");
 		// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
 		boost::asio::io_context io_context;
 			// Create and launch a listening port
 		std::cout << "Creating a listening port..." << std::endl;
-		boost::make_shared<Listener<StateType>>(
+		boost::make_shared<Listener<StateType, WebsocketSessionType>>(
 			io_context,
 			boost::asio::ip::tcp::endpoint{address, server_port},
 			state

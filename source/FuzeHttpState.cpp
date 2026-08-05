@@ -74,7 +74,6 @@ std::optional<Client> FuzeHttp::State::getClientIfExists(FuzeHttp::Request req) 
 	// TODO trim if multiple cookies found
 	std::cout << "[FuzeHttp] Received session ID: '" <<session_id_base64 << "'" << std::endl;
 	if (std::unordered_map<std::string, FuzeHttp::Session>::const_iterator it = this->sessions.find(session_id_base64); it != this->sessions.end()) {
-		std::cout << "found session";
 		auto client_it = this->clients.find(it->second.client_id);
 		if (client_it == this->clients.end()) {
 			std::print(std::cerr, "[FuzeHttp] Session ID linked to client with id {} which does not exist", it->second.client_id);
@@ -146,10 +145,10 @@ const std::optional<Client> FuzeHttp::State::getClientFromSession(const std::str
 
 void FuzeHttp::State::websocketJoin(WebsocketSession* session) {
 	std::lock_guard<std::mutex> lock(mutex_);
-	WebsocketSessions.insert(session);
+	websocket_sessions.insert(session);
 }
 
 void FuzeHttp::State::websocketLeave(WebsocketSession* session) {
 	std::lock_guard<std::mutex> lock(mutex_);
-	WebsocketSessions.erase(session);
+	websocket_sessions.erase(session);
 }

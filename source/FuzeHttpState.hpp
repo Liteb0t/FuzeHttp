@@ -7,6 +7,7 @@
 
 namespace FuzeHttp {
 class Server;
+// template<class StateType>
 class WebsocketSession;
 class State : public PermissionManager {
 public:
@@ -42,12 +43,12 @@ protected:
 	std::unordered_map<std::string /*key_base64*/, Session> sessions;
 	std::unordered_map<std::string /*key_base64*/, Invite> invites;
 	// Keep a list of all the websocket-connected clients
-	std::unordered_set<FuzeHttp::WebsocketSession*> WebsocketSessions;
+	std::unordered_set<FuzeHttp::WebsocketSession*> websocket_sessions;
 	std::filesystem::path document_root;
 	// std::unordered_map<std::filesystem::path, std::string> document_etags;
 	// FuzeDBI::Connection* fuze_dbi;
 	std::vector<FuzeHttp::TemplateMacro*> options;
-	// This mutex synchronizes all access to WebsocketSessions
+	// This mutex synchronizes all access to websocket_sessions
 	std::mutex mutex_;
 private:
 	void loadSessions();

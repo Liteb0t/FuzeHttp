@@ -38,7 +38,29 @@ public:
 	}
 
 	template<class Body, class Allocator>
-	void run(http::request<Body, http::basic_fields<Allocator>> req);
+	void run(http::request<Body, http::basic_fields<Allocator>> req) {
+		// Set suggested timeout settings for the websocket
+		ws_.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
+
+		// Set a decorator to change the Server of the handshake
+		ws_.set_option(websocket::stream_base::decorator(
+			[](websocket::response_type& res) {
+				res.set(http::field::server,
+					std::string(BOOST_BEAST_VERSION_STRING) +
+						" websocket-chat-multi");
+			}
+		));
+		this->client = this->state_->getClientIfExists(req);
+
+		// Accept the websocket handshake
+		ws_.async_accept(
+			req,
+			beast::bind_front_handler(
+				&WebsocketSession::on_accept,
+				this->shared_from_this()
+			)
+		);
+	} // WebsocketSession::run
 
 	// Send a message
 	void send(boost::shared_ptr<std::string const> const& ss) {
@@ -50,7 +72,7 @@ public:
 			ws_.get_executor(),
 			beast::bind_front_handler(
 				&WebsocketSession::on_send,
-				shared_from_this(),
+				this->shared_from_this(),
 				ss
 			)
 		);
@@ -59,11 +81,11 @@ public:
 	bool is_webrtc = false; // TODO: replace with abstract classes
 
 	std::optional<Client> getClient() const { return this->client; }
+protected:
+	State* state_;
 private:
-	int tracking_thread;
 	beast::flat_buffer buffer_;
 	websocket::stream<beast::tcp_stream> ws_;
-	State* state_;
 	std::optional<Client> client;
 	std::vector<boost::shared_ptr<std::string const>> queue_;
 
@@ -90,19 +112,25 @@ private:
 			buffer_,
 			beast::bind_front_handler(
 				&WebsocketSession::on_read,
-				shared_from_this()
+				this->shared_from_this()
 			)
 		);
 	}
+	virtual void readEvent(std::string buffer_data) {
+		std::println("[FuzeHttp] [virtual readEvent] websocket buffer data: {}", buffer_data);
+	}
+
 	void on_read(beast::error_code ec, std::size_t bytes_transferred) {
 		// Handle the error, if any
 		if(ec)
 			return fail(ec, "read");
 
-		state_->websocketRead(this);
+		std::string buffer_data = beast::buffers_to_string(buffer_.data());
+		this->readEvent(buffer_data);
+
+		// state_->websocketRead(this);
 		/*
 		try {
-			std::string buffer_data = beast::buffers_to_string(buffer_.data());
 			std::cout << buffer_data << std::endl;
 			boost::json::object buffer_as_json = boost::json::parse(buffer_data).as_object();
 
@@ -151,7 +179,7 @@ private:
 			buffer_,
 			beast::bind_front_handler(
 				&WebsocketSession::on_read,
-				shared_from_this()
+				this->shared_from_this()
 			)
 		);
 	}
@@ -169,7 +197,7 @@ private:
 				boost::asio::buffer(*queue_.front()),
 				beast::bind_front_handler(
 					&WebsocketSession::on_write,
-					shared_from_this()
+					this->shared_from_this()
 				)
 			);
 		}
@@ -187,68 +215,13 @@ private:
 			boost::asio::buffer(*queue_.front()),
 			beast::bind_front_handler(
 				&WebsocketSession::on_write,
-				shared_from_this()
+				this->shared_from_this()
 			)
 		);
 	}
+
+	friend class State;
 }; // class WebsocketSession
-
-template<class Body, class Allocator>
-void WebsocketSession::run(http::request<Body, http::basic_fields<Allocator>> req) {
-	// Set suggested timeout settings for the websocket
-	ws_.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
-
-	// Set a decorator to change the Server of the handshake
-	ws_.set_option(websocket::stream_base::decorator(
-		[](websocket::response_type& res) {
-			res.set(http::field::server,
-				std::string(BOOST_BEAST_VERSION_STRING) +
-					" websocket-chat-multi");
-		}
-	));
-	this->client = this->state_->getClientIfExists(req);
-	/*
-	auto sec_websocket_key_header = req.find("Sec-WebSocket-Key");
-	if (sec_websocket_key_header == req.end())
-		throw std::runtime_error("Sec-WebSocket-Key header not found");
-	std::string sec_websocket_key = sec_websocket_key_header->value();
-	std::println("line start[]{}[]line end", sec_websocket_key);
-	sec_websocket_key += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-	std::println("[WebsocketSession::run] sec_websocket_key: {}", sec_websocket_key);
-	boost::hash2::sha1_160 hash;
-	hash.update(sec_websocket_key.c_str(), sec_websocket_key.length());
-	// unsigned char hash_res[20];
-	// for (int i = 0; i < 20; ++i)
-	// 	hash_res[i] = hash.result()[i];
-	// char key_bytes[41];
-	// boost::hash2::to_chars(hash.result(), key_bytes);
-	char websocket_accept_base64[sodium_base64_ENCODED_LEN(20, sodium_base64_VARIANT_ORIGINAL)];
-	sodium_bin2base64(
-		websocket_accept_base64, sizeof websocket_accept_base64,
-		hash.result().data(), 20,
-		// (unsigned char*)key_bytes, 20,
-		sodium_base64_VARIANT_ORIGINAL
-	);
-	std::println("[WebsocketSession::run] key_base64: {}", websocket_accept_base64);
-
-	auto basic_res = FuzeHttp::Response{
-		.status = http::status::switching_protocols,
-		.headers = {{
-			{"Sec-Websocket-Accept", websocket_accept_base64}
-		}}
-	};
-	http::message_generator msg = FuzeHttp::buildResponse<http::empty_body>(basic_res, req);
-	*/
-
-	// Accept the websocket handshake
-	ws_.async_accept(
-		req,
-		beast::bind_front_handler(
-			&WebsocketSession::on_accept,
-			shared_from_this()
-		)
-	);
-} // WebsocketSession::run
 
 } // namespace FuzeHttp
 #endif
