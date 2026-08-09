@@ -197,7 +197,7 @@ public:
 	}
 	Response executeView(StateType state, Request& req) override {
 		std::optional<int> set_session_for_client_id;
-		if (std::tuple_size<ArgTuple>{} > 0 && this->all_args[0].index() == 3) { // There is a Client{} parameter in the view
+		if (std::tuple_size<ArgTuple>::value > 0 && this->all_args[0].index() == 3) { // There is a Client{} parameter in the view
 			std::optional<Client> client = state->getClientIfExists(req);
 			if (!client) {
 				client = state->createClient(); // Create anonymous client, because accounts are assigned a client on login
