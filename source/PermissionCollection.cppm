@@ -1,9 +1,12 @@
-#pragma once
-#include "FuzeDBI.hpp"
-#include "PermissionSetting.hpp"
-#include <unordered_map>
+module;
 
-namespace FuzeHttp {
+#include "FuzeDBI.hpp"
+
+export module PermissionCollection;
+
+import std;
+
+export namespace FuzeHttp {
 enum struct ACCOUNT_OR_GROUP {ACCOUNT, GROUP};
 
 class PermissionCollection {

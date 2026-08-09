@@ -7,7 +7,6 @@ target_sources(FuzeHttp
     FuzeHttpServer.cpp
     FuzeHttpUtils.cpp
     Migrations.cpp
-    PermissionObject.cpp
   PUBLIC
     FILE_SET headers
     TYPE HEADERS
@@ -23,9 +22,10 @@ target_sources(FuzeHttp
       HttpSession.hpp
       Listener.hpp
       Migrations.hpp
-      PermissionCollection.hpp
-      PermissionObject.hpp
-      PermissionSetting.hpp
       urls.hpp
       WebsocketSession.hpp
+    FILE_SET modules TYPE CXX_MODULES FILES
+      PermissionCollection.cppm
+      PermissionSetting.cppm
+      PermissionObject.cppm
 )

@@ -1,7 +1,6 @@
-#pragma once
-#include <iostream>
+export module PermissionSetting;
 
-namespace FuzeHttp {
+export namespace FuzeHttp {
 // Caution: only insert values just before NUMBER_OF_PERMISSIONS; otherwise existing database entries will be messed up
 enum struct PERMISSION {  // Mirrors PermissionCollection.permissions in _permissions.js
 	MANAGE_PERMISSIONS,
