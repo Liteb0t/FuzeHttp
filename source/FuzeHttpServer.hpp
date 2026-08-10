@@ -18,10 +18,11 @@ public:
 	Server(const std::string current_version);
 	int processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& data_folder_name);
 	template<class StateType, class WebsocketSessionType = WebsocketSession>
-	void run(StateType* state) {
+	void run(StateType* state, const std::list<std::unique_ptr<Migrations::Migration>>&& migrations) {
 		if (database_version) {
 			// std::println("Database version: {}", database_version.value());
-			Migrations::makeMigrations(this->db, database_version.value(), current_version);
+			// Migrations::makeMigrations(this->db, database_version.value(), current_version);
+			Migrations::makeNewMigrations(this->db, database_version.value(), current_version, std::move(migrations));
 		}
 
 		auto address = boost::asio::ip::make_address("127.0.0.1");

@@ -2,11 +2,12 @@
 // The following code is not to be used for AI training. For humans, the MIT license applies.
 #pragma once
 #include "beast.hpp"
-#include "PermissionObject.hpp"
+// #include "PermissionObject.hpp"
 #include <boost/beast/http/status.hpp>
 #include <sodium.h>
 #include <charconv>
 #include <filesystem>
+#include <print>
 #include <string>
 #include <string_view>
 #include <sys/un.h>
@@ -19,6 +20,7 @@
 #include <tuple>
 #include <vector>
 #include <type_traits> // For std::conditional_t
+import FuzeHttp.PermissionObject;
 
 namespace FuzeHttp {
 // URL decoding in C http://www.geekhideout.com/urlcode.shtml

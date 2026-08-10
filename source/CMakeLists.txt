@@ -6,13 +6,16 @@ target_sources(FuzeHttp
     FuzeHttpState.cpp
     FuzeHttpServer.cpp
     FuzeHttpUtils.cpp
-    PermissionObject.cpp
   PUBLIC
     FILE_SET CXX_MODULES
     BASE_DIRS
       ${CMAKE_CURRENT_SOURCE_DIR}
     FILES
       Migrations.cppm
+      PermissionSetting.cppm
+      PermissionCollection.cppm
+      PermissionObject.cppm
+      Group.cppm
     FILE_SET headers
     TYPE HEADERS
     BASE_DIRS
@@ -23,12 +26,8 @@ target_sources(FuzeHttp
       FuzeHttpState.hpp
       FuzeHttpServer.hpp
       FuzeHttpUtils.hpp
-      Group.hpp
       HttpSession.hpp
       Listener.hpp
-      PermissionCollection.hpp
-      PermissionObject.hpp
-      PermissionSetting.hpp
       urls.hpp
       WebsocketSession.hpp
 )

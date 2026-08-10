@@ -13,11 +13,12 @@
 #include "beast.hpp"
 #include "FuzeDBI.hpp"
 #include "FuzeHttpState.hpp"
-#include "PermissionObject.hpp"
+// #include "PermissionObject.hpp"
 #include <boost/smart_ptr.hpp>
 #include <mutex>
 #include <string>
 #include <unordered_set>
+import FuzeHttp.PermissionObject;
 
 // Forward declaration
 class WebsocketSession;

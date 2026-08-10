@@ -13,6 +13,9 @@ target_sources(example
     urls.cpp
     views.cpp
     views_registration.cpp
+  PUBLIC FILE_SET CXX_MODULES
+  FILES
+    migrations.cppm
 )
 set(PROJECT_FOLDER "FuzeHttp_Example")
 target_compile_definitions(example PUBLIC PROJECT_FOLDER="${PROJECT_FOLDER}")

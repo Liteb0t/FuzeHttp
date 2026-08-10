@@ -1,9 +1,10 @@
-#pragma once
+module;
 #include <string>
 #include <unordered_set>
 #include <boost/json.hpp>
+export module FuzeHttp.Group;
 
-namespace FuzeHttp {
+export namespace FuzeHttp {
 enum GroupLockPosition { NONE, LOCK_TO_TOP, LOCK_TO_BOTTOM };
 
 class Group {

@@ -8,7 +8,7 @@
 //
 
 #include "FuzeHttpServer.hpp"
-#include "PermissionObject.hpp"
+// #include "PermissionObject.hpp"
 #include "shared_state.hpp"
 #include "WebsocketSession.hpp"
 #include <boost/json/serialize.hpp>

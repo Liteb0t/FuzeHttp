@@ -5,7 +5,7 @@
 
 #include "FuzeHttpUtils.hpp"
 #include "FuzeHttpServer.hpp"
-#include "PermissionObject.hpp"
+// #include "PermissionObject.hpp"
 #include "shared_state.hpp"
 #include <boost/asio/signal_set.hpp>
 #include <boost/json/object.hpp>
@@ -26,6 +26,8 @@
 #include <print>
 #include <string>
 #include <vector>
+import FuzeHttp.Example.Migrations;
+import FuzeHttp.PermissionObject;
 
 const std::string current_version = "0.1.4";
 #ifdef PROJECT_FOLDER
@@ -67,7 +69,8 @@ int main(int argc, char* argv[]) {
 		std::cerr << "[shared_state] " << exception.what() << std::endl;
 		return 1;
 	}
-	server.run(state);
+	auto migrations = addMigrations(state);
+	server.run(state, std::move(migrations));
 
 
 	return EXIT_SUCCESS;
