@@ -4,14 +4,26 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 #include "FuzeHttpUtils.hpp"
+import FuzeHttp.Migrations;
+
+struct ProgramDirectories {
+	std::filesystem::path data;
+	std::filesystem::path media;
+	std::filesystem::path sqlite_file;
+};
 
 namespace FuzeHttp {
 class Server {
 public:
-	Server();
-	int processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& current_version, const std::string& data_folder_name);
+	Server(const std::string current_version);
+	int processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& data_folder_name);
 	template<class StateType, class WebsocketSessionType = WebsocketSession>
 	void run(StateType* state) {
+		if (database_version) {
+			// std::println("Database version: {}", database_version.value());
+			Migrations::makeMigrations(this->db, database_version.value(), current_version);
+		}
+
 		auto address = boost::asio::ip::make_address("127.0.0.1");
 		// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
 		boost::asio::io_context io_context;
@@ -64,8 +76,9 @@ public:
 		// delete database_connection;
 	}
 	FuzeDBI::Connection* db;
+	ProgramDirectories program_directories;
 	std::filesystem::path document_root;
-	std::filesystem::path media_location;
+	// std::filesystem::path media_location;
 	std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags;
 	std::unordered_map<std::string, std::string> busted_target_to_target;
 	std::unordered_set<std::string> files_generated_from_templates;
@@ -73,6 +86,8 @@ public:
 	const unsigned short server_port = 8300;
 	unsigned int parser_body_size_limit_mb;
 	std::string frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
+	std::optional<std::string> database_version;
+	const std::string current_version;
 private:
 	// FuzeHttp::State* state;
 	const unsigned short threads = 1;

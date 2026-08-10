@@ -51,8 +51,8 @@ std::vector<FuzeHttp::TemplateMacro*> template_macros{
 int main(int argc, char* argv[]) {
 	StateConfig state_config;	// Macros which link to state_config
 	template_macros.push_back(new TemplateOptionPtr("site_name", &state_config.server_name, {.default_value=std::string("FuzeHttp Example")}));
-	FuzeHttp::Server server;
-	if (int return_code; (return_code = server.processOptions(argc, argv, template_macros, current_version, project_name)) != -1)
+	FuzeHttp::Server server(current_version);
+	if (int return_code; (return_code = server.processOptions(argc, argv, template_macros, project_name)) != -1)
 		return return_code;
 	std::cout << "Initialising shared state..." << std::endl;
 	shared_state* state;

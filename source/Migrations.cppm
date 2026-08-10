@@ -1,12 +1,19 @@
-#include "Migrations.hpp"
+module;
+#include "FuzeDBI.hpp"
+// #include "FuzeMigrationHelper.hpp"
+#include <iostream>
+#include <filesystem>
+#include <string>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <print>
+export module FuzeHttp.Migrations;
 
-using namespace FuzeHttp;
-
-void Migrations::firstTimeSetup(FuzeDBI::Connection* fuze_dbi, const std::filesystem::path& template_path, const std::filesystem::path& absolute_sqlite_path, const std::string& current_version) {
+export namespace FuzeHttp {
+namespace Migrations {
+// Populates database with entries in database_template.sql, and sets the version
+void firstTimeSetup(FuzeDBI::Connection* fuze_dbi, const std::filesystem::path& template_path, const std::filesystem::path& absolute_sqlite_path, const std::string& current_version) {
 	int ec; char* error_message;
 	std::println("Doing first-time setup");
 	std::println("Opening database template at {}", template_path.string());
@@ -44,8 +51,8 @@ void Migrations::firstTimeSetup(FuzeDBI::Connection* fuze_dbi, const std::filesy
 		throw std::runtime_error("An error occured during database template import.");
 	}
 }
-
-bool Migrations::writeMigrations(std::ostream& stream, const std::string& database_version_string) {
+// Returns true if any migrations need to be made by psql
+bool writeMigrations(std::ostream& stream, const std::string& database_version_string) {
 	if (database_version_string <= "0.1")	goto v0_1;
 	if (database_version_string <= "0.1.1")	goto v0_1_1;
 	// If code reaches here, no migrations need to be made
@@ -60,19 +67,9 @@ v0_1_1:
 	std::cout << "Finished writing migrations" << std::endl;
 	return true; // Migrations were made
 }
-
-/*
-void Migrations::writeNewMigrations(FuzeDBI::Connection* fuze_dbi, Fuze::MigrationHelper::Migrations& m) {
-	using namespace Fuze::MigrationHelper;
-	m += Version{"1.1.1"};
-	m += "ALTER TABLE message_file ADD COLUMN height INTEGER";
-	m += "ALTER TABLE message_file ADD COLUMN thumbnail_format TEXT";
-	// m += [](){std::cout << "Function migration called";};
-	m += [](){std::cout << "Function migration called";};
-}
-*/
-
-void Migrations::makeMigrations(FuzeDBI::Connection* fuze_dbi, const std::string& database_version_string, const std::string& current_version) {
+// void writeNewMigrations(FuzeDBI::Connection* fuze_dbi, Fuze::MigrationHelper::Migrations& migrater);
+// Wrapper for writeMigrations
+void makeMigrations(FuzeDBI::Connection* fuze_dbi, const std::string& database_version_string, const std::string& current_version) {
 	println("Database version: \t{}", database_version_string);
 	println("Server version:   \t{}", current_version);
 	// Fuze::MigrationHelper::Migrations migrater(fuze_dbi);
@@ -96,3 +93,5 @@ void Migrations::makeMigrations(FuzeDBI::Connection* fuze_dbi, const std::string
 		std::println("No migrations needed");
 	fuze_dbi->query<void>("UPDATE _info SET version = $1", current_version);
 }
+} // Migrations
+} // FuzeHttp

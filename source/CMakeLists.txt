@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 
 target_sources(FuzeHttp
   PRIVATE
@@ -6,9 +6,13 @@ target_sources(FuzeHttp
     FuzeHttpState.cpp
     FuzeHttpServer.cpp
     FuzeHttpUtils.cpp
-    Migrations.cpp
     PermissionObject.cpp
   PUBLIC
+    FILE_SET CXX_MODULES
+    BASE_DIRS
+      ${CMAKE_CURRENT_SOURCE_DIR}
+    FILES
+      Migrations.cppm
     FILE_SET headers
     TYPE HEADERS
     BASE_DIRS
@@ -22,7 +26,6 @@ target_sources(FuzeHttp
       Group.hpp
       HttpSession.hpp
       Listener.hpp
-      Migrations.hpp
       PermissionCollection.hpp
       PermissionObject.hpp
       PermissionSetting.hpp

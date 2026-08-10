@@ -25,7 +25,7 @@ shared_state::shared_state(FuzeHttp::Server* server, StateConfig config, bool cr
 		: State(server),
 		config(config),
 		// fuze_dbi(server->db),
-		media_location(server->media_location) {
+		media_location(server->program_directories.media) {
 	if (create_owner_account) {
 		std::string invite_key = this->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
 		std::cout << std::endl << "Use this link to register the owner account: http://localhost:" << this->server->server_port << "/invite/" << invite_key << std::endl;

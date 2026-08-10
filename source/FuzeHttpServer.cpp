@@ -1,14 +1,14 @@
 #include "FuzeHttpServer.hpp"
 #include "FuzeHttp.hpp"
-#include "Migrations.hpp"
 #include <fstream>
 #include <iostream>
 
-struct ProgramDirectories {
-	std::filesystem::path data;
-	std::filesystem::path media;
-	std::filesystem::path sqlite_file;
-};
+FuzeHttp::Server::Server(const std::string current_version) : current_version(current_version) {
+	if (sodium_init() < 0) {
+		std::cerr << "libsodium couldn't be initialised" << std::endl;
+		return;
+	}
+}
 
 std::filesystem::path getConfigDirectory(std::filesystem::path program_location, std::optional<std::string> config_file, std::optional<std::string> data_directory_config, const std::string& data_folder_name) {
 	std::filesystem::path config_path;
@@ -98,14 +98,7 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 	};
 }
 
-FuzeHttp::Server::Server() {
-	if (sodium_init() < 0) {
-		std::cerr << "libsodium couldn't be initialised" << std::endl;
-		return;
-	}
-}
-
-int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& current_version, const std::string& data_folder_name) {
+int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& data_folder_name) {
 	std::error_code ec;
 	std::filesystem::path program_location = boost::dll::program_location().parent_path();
 	if (ec)
@@ -200,7 +193,6 @@ int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHtt
 		std::println("media_directory config option not found");
 	if (this->variable_map.count("sqlite_database_file"))
 		sqlite_database_file_config = sqlite_database_file_str;
-	ProgramDirectories program_directories;
 	std::optional<ProgramDirectories> program_directories_opt = getProgramDirectories(program_location, data_directory_config, media_directory_config, sqlite_database_file_config, data_folder_name);
 	if (!program_directories_opt) {
 		std::cerr << "Mediaboard setup was cancelled by the user." << std::endl;
@@ -215,7 +207,6 @@ int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHtt
 		<< "Media:\t" << program_directories.media << std::endl;
 
 	std::println("FuzeDBI interface: {}", FUZEDBI_DB);
-	bool make_migrations;
 	// FuzeDBI::Connection* fuze_database_interface;
 	try {
 #ifdef FUZEDBI_POSTGRES
@@ -224,37 +215,30 @@ int FuzeHttp::Server::processOptions(int argc, char* argv[], std::vector<FuzeHtt
 		print("sqlite_database_file: {}", program_directories.sqlite_file.string());
 
 		this->db = new FuzeDBI::Connection(program_directories.sqlite_file.string());
-#endif
-		std::optional<std::string> version_string;
-		bool version_string_found = false;
 		try {
-			version_string = this->db->query<std::optional<std::string>>("SELECT version FROM _info");
-			version_string_found = true;
+			database_version = this->db->query<std::optional<std::string>>("SELECT version FROM _info");
 		}
-		catch(const std::exception& exception) {
-			std::cout << "Version string not found in database" << std::endl;
+		catch (const std::exception e) {
+			std::println("Version string not found");
 		}
-		if (version_string_found && version_string) {
-			// std::cout << "Version " <<	version_string.value() << std::endl;
-			Migrations::makeMigrations(this->db, version_string.value(), current_version);
-		}
-		else {
+		if (!database_version) {
 			// std::filesystem::path template_path = std::filesystem::absolute("database_template.sql", database_location);
 			// if (!std::filesystem::exists(template_path))
 			// 	throw std::runtime_error(std::format("Database template file {} not found.", template_path.string()));
 			Migrations::firstTimeSetup(this->db, program_directories.data / "database_template.sql", program_directories.sqlite_file.string(), current_version);
 		}
-		std::cout << "Set port: " << server_port << std::endl;
+#endif
 	}
 	catch (const std::exception& exception) {
 		std::cerr << exception.what() << std::endl;
 		return 1;
 	}
+	std::cout << "Set port: " << server_port << std::endl;
 	std::cout << "Set threads: " << threads << std::endl;
 	if (threads > 1)
 		std::cout << "Warning: issues may arise from multi-threading" << std::endl;
 
-	this->media_location = program_directories.media;
+	// this->media_location = program_directories.media;
 	this->document_root = program_directories.data / "frontend";
 	std::filesystem::path manifest_file = program_directories.data / "manifest.json";
 	// std::filesystem::path template_root = program_directories.data / "frontend" / "templates";
