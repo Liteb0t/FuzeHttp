@@ -34,7 +34,6 @@ struct StateConfig {
 class shared_state : public FuzeHttp::State {
 public:
 	shared_state(FuzeDBI::Connection* db) : State(db) {}
-	// TODO get secret from environment variable defined in config
 	// shared_state(StateConfig config) : Stateconfig(config) {}
 	// shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location_relative, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates);
 	StateConfig config;

@@ -143,7 +143,7 @@ public:
 		std::cout << "[shared_state] Cleared " << initial_number_of_sessions - this->sessions.size() << " expired sessions." << std::endl;
 	}
 	const std::filesystem::path& getDocumentRoot() const { return document_root; }
-	const char* getSecret() const { return this->secret_base64; }
+	const std::string getSecret() const { return this->secret_base64; }
 	void websocketJoin (FuzeHttp::WebsocketSession* session) {
 		std::lock_guard<std::mutex> lock(mutex_);
 		websocket_sessions.insert(session);
@@ -152,6 +152,21 @@ public:
 	void websocketLeave(FuzeHttp::WebsocketSession* session) {
 		std::lock_guard<std::mutex> lock(mutex_);
 		websocket_sessions.erase(session);
+	}
+	void setSecretFromEnvironmentVariable(const std::string& environment_variable_for_secret, bool secret_required) {
+		if (const unsigned char* secret_pointer = reinterpret_cast<const unsigned char*>(std::getenv(environment_variable_for_secret.c_str()))) {
+			char secret_base64_a[sodium_base64_ENCODED_LEN(sizeof secret_pointer, sodium_base64_VARIANT_URLSAFE)];
+			sodium_bin2base64(
+				secret_base64_a, sizeof secret_base64_a,
+				secret_pointer, sizeof secret_pointer,
+				sodium_base64_VARIANT_URLSAFE
+			);
+			this->secret_base64 = secret_base64_a;
+		}
+		else if (secret_required)
+			throw std::runtime_error(std::format("Environment variable {} not found", environment_variable_for_secret));
+		else
+			std::println("Warning: Environment variable {} not found. Continuing anyway because secret_required is set to false.", environment_variable_for_secret);
 	}
 	// const std::unordered_map<std::string, std::string> busted_target_to_target;
 	// const std::unordered_set<std::string> files_generated_from_templates;
@@ -219,7 +234,7 @@ private:
 		}
 	}
 	const std::chrono::duration<unsigned int> authorization_token_lifespan = std::chrono::days(365);
-	char secret_base64[sodium_base64_ENCODED_LEN(crypto_pwhash_SALTBYTES, sodium_base64_VARIANT_URLSAFE)];
+	std::string secret_base64;
 	// friend class FuzeHttp::Server;
 	friend class WebsocketSession;
 }; // class State

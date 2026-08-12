@@ -2,7 +2,7 @@
 // The following code is not to be used for AI training. For humans, the MIT license applies.
 #include "views.hpp"
 // #include "FuzeHttp.hpp"
-#include "FuzeHttpServer.hpp"
+// #include "FuzeHttpServer.hpp"
 // #include "FuzeHttpUtils.hpp"
 // #include "PermissionObject.hpp"
 #include "shared_state.hpp"
@@ -12,6 +12,7 @@
 #include <print>
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.Server;
 import FuzeHttp.Utils;
 import FuzeDBI;
 

@@ -1,4 +1,4 @@
-#pragma once
+module;
 #include "Listener.hpp"
 #define BOOST_DLL_USE_STD_FS
 #include <boost/dll/runtime_symbol_info.hpp>
@@ -7,20 +7,21 @@
 #include <boost/program_options.hpp>
 #include <list>
 #include <sodium.h>
+export module FuzeHttp.Server;
 // #include "FuzeHttpUtils.hpp"
 import FuzeDBI;
 import FuzeHttp.Migrations;
 import FuzeHttp.State;
 import FuzeHttp.Utils;
 
-struct ProgramDirectories {
-	std::filesystem::path data;
-	std::filesystem::path media;
-	std::filesystem::path sqlite_file;
-};
-
 namespace FuzeHttp {
-std::filesystem::path getConfigDirectory(std::filesystem::path program_location, std::optional<std::string> config_file, std::optional<std::string> data_directory_config, const std::string& data_folder_name) {
+	struct ProgramDirectories {
+		std::filesystem::path data;
+		std::filesystem::path media;
+		std::filesystem::path sqlite_file;
+	};
+
+	std::filesystem::path getConfigDirectory(std::filesystem::path program_location, std::optional<std::string> config_file, std::optional<std::string> data_directory_config, const std::string& data_folder_name) {
 	std::filesystem::path config_path;
 	if (config_file) { // Line set in cmdline options
 		config_path = config_file.value();
@@ -107,6 +108,9 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 		.sqlite_file = sqlite_file
 	};
 }
+} // namespace FuzeHttp
+
+export namespace FuzeHttp {
 
 template<class StateType, class WebsocketSessionType = WebsocketSession>
 class Server {
@@ -128,9 +132,9 @@ public:
 		std::optional<std::string> config_file, data_directory_config, media_directory_config, sqlite_database_file_config;
 		// Check command line arguments.
 		unsigned short server_port, postgresql_port;
-		std::string config_file_str, data_directory_str, media_directory_str, database_engine, sqlite_database_file_str, postgresql_uri, postgresql_user, postgresql_host, thumbnail_file_format, postgresql_database_name;
+		std::string config_file_str, data_directory_str, media_directory_str, database_engine, environment_variable_for_secret, sqlite_database_file_str, postgresql_uri, postgresql_user, postgresql_host, thumbnail_file_format, postgresql_database_name;
 		unsigned int threads, thumbnail_size, parser_body_size_limit_mb;
-		bool postgresql_use_uri;
+		bool postgresql_use_uri, secret_required;
 		boost::program_options::options_description command_line_specific_options("Command-line-specific options");
 		command_line_specific_options.add_options()
 			("create_owner,o", "Generates a link to create the server owner's account.")
@@ -148,6 +152,8 @@ public:
 		universal_options.add_options()
 			("data_directory", boost::program_options::value<std::string>(&data_directory_str))
 			// ("file_size_limit_mb", boost::program_options::value<unsigned int>(&state_config.file_size_limit_mb)->default_value(25), "In MB")
+			("environment_variable_for_secret", boost::program_options::value<std::string>(&environment_variable_for_secret)->default_value("FUZEHTTP_SECRET"))
+			("secret_required", boost::program_options::value<bool>(&secret_required)->default_value(true))
 			("media_directory,m", boost::program_options::value<std::string>(&media_directory_str),  "File path where user-submitted media is stored. data_directory is used if none is specified.")
 			("sqlite_database_file,s", boost::program_options::value<std::string>(&sqlite_database_file_str),  "File where SQLite data is stored. data_directory is used if none is specified.")
 			("server_port,p", boost::program_options::value<unsigned short>(&server_port)->default_value(8300), "The port which the server will serve. Make sure it isn't already in use by another service.")
@@ -376,6 +382,7 @@ public:
 		else if (!state->ownerExists())
 			std::println("\nERROR: No owner found. Restart the application with --create_owner");
 		state->document_root = document_root;
+		state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
 		state->media_location = program_directories.media;
 		state->manifest_frontend_etags = std::move(manifest_frontend_etags);
 		state->busted_target_to_target = std::move(busted_target_to_target);
@@ -418,10 +425,10 @@ public:
 			}
 		);
 
-		std::cout << "The server can now be accessed from http://localhost:" << server_port << std::endl;
 
 		// Run the I/O service on the requested number of threads
 		std::cout << "Running the I/O service..." << std::endl;
+		std::println("The server can now be accessed from http://localhost:{}", server_port);
 		std::vector<std::thread> v;
 		v.reserve(threads - 1);
 		for(auto i = threads - 1; i > 0; --i) {

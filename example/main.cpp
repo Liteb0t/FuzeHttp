@@ -4,30 +4,16 @@
 // https://github.com/vinniefalco/CppCon2018
 
 // #include "FuzeHttpUtils.hpp"
-#include "FuzeHttpServer.hpp"
+// #include "FuzeHttpServer.hpp"
 // #include "PermissionObject.hpp"
 #include "shared_state.hpp"
-#include <boost/asio/signal_set.hpp>
-#include <boost/json/object.hpp>
-#include <boost/json/serialize.hpp>
-#define BOOST_DLL_USE_STD_FS
-#include <boost/dll.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/hash2/md5.hpp>
-#include <boost/program_options.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/smart_ptr.hpp>
-#include <boost/smart_ptr/make_shared_array.hpp>
-#ifdef WITH_MAGICK
-#include <Magick++.h>
-#endif
 #include <cstdlib>
-#include <iostream>
 #include <print>
 #include <string>
 #include <vector>
 // import FuzeHttp.Example.Migrations;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.Server;
 import FuzeHttp.Utils;
 import FuzeDBI;
 
@@ -57,14 +43,17 @@ int main(int argc, char* argv[]) {
 	StateConfig state_config;
 	template_macros.push_back(new TemplateOptionPtr("site_name", &state_config.server_name, {.default_value=std::string("FuzeHttp Example")}));
 
-	std::cout << "Initialising shared state..." << std::endl;
+	std::println("Initialising server...");
 	// shared_state state(state_config);
 	// state.start();
 
 	FuzeHttp::Server<shared_state> server(current_version);
-	server.state->config = state_config;
+	std::println("Finished Initialising server...");
 	if (int return_code; (return_code = server.processOptions(argc, argv, template_macros, project_name)) != -1)
 		return return_code;
+	std::println("Finished processing options... adding confuig...");
+	server.state->config = state_config;
+	std::println("Running server...");
 	server.run();
 
 

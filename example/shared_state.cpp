@@ -8,7 +8,7 @@
 //
 
 #include "shared_state.hpp"
-#include "FuzeHttpServer.hpp"
+// #include "FuzeHttpServer.hpp"
 // #include "PermissionObject.hpp"
 // #include "shared_state.hpp"
 // #include "WebsocketSession.hpp"
@@ -17,6 +17,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
+import FuzeHttp.Server;
 import FuzeHttp.State;
 
 using namespace FuzeHttp;

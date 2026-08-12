@@ -157,7 +157,7 @@ void getSaltBase64(StateType state, const std::string& username, char* salt_base
 		crypto_generichash(
 			salt, sizeof salt,
 			reinterpret_cast<const unsigned char*>(username.c_str()), username.length(),
-			reinterpret_cast<const unsigned char*>(state->getSecret()), sodium_base64_ENCODED_LEN(crypto_pwhash_SALTBYTES, sodium_base64_VARIANT_URLSAFE)
+			reinterpret_cast<const unsigned char*>(state->getSecret().c_str()), state->getSecret().length()
 		);
 	}
 	sodium_bin2base64(

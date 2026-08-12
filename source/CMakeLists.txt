@@ -11,6 +11,7 @@ target_sources(FuzeHttp
     FILES
       FuzeDBI.cppm
       FuzeHttp.cppm
+      FuzeHttpServer.cppm
       FuzeHttpState.cppm
       FuzeHttpUtils.cppm
       Group.cppm
@@ -27,7 +28,7 @@ target_sources(FuzeHttp
     FILES
       # buildResponse.hpp
       Controller.hpp
-      FuzeHttpServer.hpp
+      # FuzeHttpServer.hpp
       Listener.hpp
       Request.hpp
       # State_WebsocketSession_declarations.hpp
