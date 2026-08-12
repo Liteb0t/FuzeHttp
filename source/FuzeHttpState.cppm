@@ -26,7 +26,9 @@ class WebsocketSession;
 export namespace FuzeHttp {
 // class Server;
 // template<class StateType>
-class WebsocketSession;
+class WebsocketSession; // forward declaration
+// WebsocketSession is placed in this module to workaround a circular dependency issue which was an obstacle to module migration. TODO: separate WebsocketSession into its own module or partition if possible.
+
 class State : public PermissionManager {
 public:
 	State(FuzeDBI::Connection* db) : PermissionManager(0, db), db(db) {

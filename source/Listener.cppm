@@ -1,16 +1,4 @@
-#pragma once
-//
-// Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-// Official repository: https://github.com/vinniefalco/CppCon2018
-//
-
-#ifndef BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_LISTENER_HPP
-#define BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_LISTENER_HPP
-
+module;
 #include "beast.hpp"
 // #include "FuzeHttpState.hpp"
 // #include "HttpSession.hpp"
@@ -20,11 +8,10 @@
 #include <memory>
 #include <string>
 #include "urls.hpp"
+export module FuzeHttp.Listener;
 import FuzeHttp.HttpSession;
 
-// Forward declaration
-// class shared_state;
-namespace FuzeHttp {
+export namespace FuzeHttp {
 // Accepts incoming connections and launches the sessions
 template<class StateType, class WebsocketSessionType>
 class Listener : public boost::enable_shared_from_this<Listener<StateType, WebsocketSessionType>> {
@@ -111,4 +98,3 @@ private:
 };
 
 }; // namespace FuzeHttp
-#endif

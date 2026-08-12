@@ -1,16 +1,24 @@
 module;
-#include "Listener.hpp"
+// #include "Listener.hpp"
+#include <boost/asio.hpp>
 #define BOOST_DLL_USE_STD_FS
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/hash2/md5.hpp>
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
+#include <boost/smart_ptr.hpp>
+#include <iostream>
 #include <list>
+#include <print>
 #include <sodium.h>
+#include <unordered_map>
+#include <unordered_set>
 export module FuzeHttp.Server;
 // #include "FuzeHttpUtils.hpp"
 import FuzeDBI;
+import FuzeHttp.Listener;
 import FuzeHttp.Migrations;
+import FuzeHttp.PermissionObject;
 import FuzeHttp.State;
 import FuzeHttp.Utils;
 
@@ -81,7 +89,7 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 	if (std::getenv("APPDIR")) {
 		data_directory = std::filesystem::absolute(program_location / ".." / "share" / data_folder_name); // To match Unix
 		// if (!std::filesystem::exists(config_file)) {
-		// 	std::print("Copying config.ini from AppImage");
+		// 	std::println("Copying config.ini from AppImage");
 		// 	std::filesystem::copy(data_directory / "config.ini", config_file);
 		// }
 	}
@@ -117,7 +125,7 @@ class Server {
 public:
 	Server(const std::string current_version) : current_version(current_version) {
 		if (sodium_init() < 0) {
-			std::cerr << "libsodium couldn't be initialised" << std::endl;
+			std::println(std::cerr, "libsodium couldn't be initialised");
 			return;
 		}
 	}
@@ -127,7 +135,7 @@ public:
 		if (ec)
 			throw std::runtime_error("An error occured when attempting to get the current program's location.");
 		else
-			std::cout << "Server is located at " << program_location << std::endl;
+			std::println("Server is located at {}", program_location.string());
 
 		std::optional<std::string> config_file, data_directory_config, media_directory_config, sqlite_database_file_config;
 		// Check command line arguments.
@@ -187,16 +195,16 @@ public:
 			// Load config.ini
 			std::ifstream config_file_ifstream(config_file_path.string());
 			if (config_file_ifstream) {
-				std::cout << "Loaded config file " << config_file_path << std::endl;
+				std::println("Loaded config file {}", config_file_path.string());
 				store(parse_config_file(config_file_ifstream, universal_options), this->variable_map);
 				boost::program_options::notify(this->variable_map);
 			}
 			else {
-				std::cout << "Could not find config.ini file. Default options will be used." << std::endl;
+				std::println("Could not find config.ini file. Default options will be used.");
 			}
 		}
 		catch (const std::exception& exception) {
-			std::cout << exception.what() << std::endl;
+			std::println("{}", exception.what());
 			return 1;
 		}
 
@@ -205,7 +213,7 @@ public:
 			return 2;
 		}
 		if (this->variable_map.count("version")) {
-			std::cout << current_version << std::endl;
+			std::println("{}", current_version);
 			return 2;
 		}
 		if (this->variable_map.count("data_directory"))
@@ -220,16 +228,16 @@ public:
 			sqlite_database_file_config = sqlite_database_file_str;
 		std::optional<ProgramDirectories> program_directories_opt = getProgramDirectories(program_location, data_directory_config, media_directory_config, sqlite_database_file_config, data_folder_name);
 		if (!program_directories_opt) {
-			std::cerr << "Mediaboard setup was cancelled by the user." << std::endl;
+			std::println(std::cerr, "Mediaboard setup was cancelled by the user.");
 			return 3;
 		}
 		else
 			program_directories = program_directories_opt.value();
-		std::cout << "Data:\t" << program_directories.data << std::endl
+		std::println("Data:\t {}", program_directories.data.string());
 	#ifdef FUZEDBI_SQLITE
-			<< "SQLite:\t" << program_directories.sqlite_file << std::endl
+		std::println("SQLite:\t {}", program_directories.sqlite_file.string());
 	#endif
-			<< "Media:\t" << program_directories.media << std::endl;
+		std::println("Media:\t {}", program_directories.media.string());
 
 		std::println("FuzeDBI interface: {}", FUZEDBI_DB);
 		// FuzeDBI::Connection* fuze_database_interface;
@@ -255,13 +263,13 @@ public:
 	#endif
 		}
 		catch (const std::exception& exception) {
-			std::cerr << exception.what() << std::endl;
+			std::println(std::cerr, "{}", exception.what());
 			return 1;
 		}
-		std::cout << "Set port: " << server_port << std::endl;
-		std::cout << "Set threads: " << threads << std::endl;
+		std::println("Set port: {}", server_port);
+		std::println("Set threads: {}", threads);
 		if (threads > 1)
-			std::cout << "Warning: issues may arise from multi-threading" << std::endl;
+			std::println("Warning: issues may arise from multi-threading");
 
 		// this->media_location = program_directories.media;
 		this->document_root = program_directories.data / "frontend";
@@ -340,7 +348,7 @@ public:
 
 			// json_as_str = writeManifestJson(manifest_file, manifest_frontend_etags);
 
-			std::println("manifest_frontend_etags:");
+			std::print("manifest_frontend_etags: ");
 			for (const auto& target : manifest_frontend_etags)
 				std::println("{} :: {}", target.first, target.second);
 
@@ -377,7 +385,7 @@ public:
 		this->state = std::make_unique<StateType>(db);
 		if (this->variable_map.count("create_owner")) {
 			std::string invite_key = state->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
-			std::cout << std::endl << "Use this link to register the owner account: http://localhost:" << this->server_port << "/invite/" << invite_key << std::endl;
+			std::println("\nUse this link to register the owner account: http://localhost:{}/invite/{}", this->server_port, invite_key);
 		}
 		else if (!state->ownerExists())
 			std::println("\nERROR: No owner found. Restart the application with --create_owner");
@@ -406,7 +414,7 @@ public:
 		// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
 		boost::asio::io_context io_context;
 			// Create and launch a listening port
-		std::cout << "Creating a listening port..." << std::endl;
+		std::println("Creating a listening port...");
 		boost::make_shared<Listener<StateType, WebsocketSessionType>>(
 			io_context,
 			boost::asio::ip::tcp::endpoint{address, server_port},
@@ -414,7 +422,7 @@ public:
 		)->run();
 
 		// Capture SIGINT and SIGTERM to perform a clean shutdown
-		std::cout << "Setting signals..." << std::endl;
+		std::println("Setting signals...");
 		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
 		signals.async_wait(
 			[&io_context](boost::system::error_code const&, int) {
@@ -427,7 +435,7 @@ public:
 
 
 		// Run the I/O service on the requested number of threads
-		std::cout << "Running the I/O service..." << std::endl;
+		std::println("Running the I/O service...");
 		std::println("The server can now be accessed from http://localhost:{}", server_port);
 		std::vector<std::thread> v;
 		v.reserve(threads - 1);
@@ -446,9 +454,9 @@ public:
 		for(auto& t : v)
 			t.join();
 		if (threads == 1)
-			std::cout << "Thread closed." << std::endl;
+			std::println("Thread closed.");
 		else
-			std::cout << "All " << threads << " threads closed." << std::endl;
+			std::println("All {} threads closed.", threads);
 		state->clearExpiredSessions();
 		// delete state;
 		// delete database_connection;
