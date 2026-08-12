@@ -5,7 +5,9 @@
 #include <boost/program_options.hpp>
 #include <list>
 // #include "FuzeHttpUtils.hpp"
+import FuzeDBI;
 import FuzeHttp.Migrations;
+import FuzeHttp.State;
 import FuzeHttp.Utils;
 
 struct ProgramDirectories {

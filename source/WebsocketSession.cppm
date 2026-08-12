@@ -13,7 +13,7 @@ module;
 export module FuzeHttp.State:WebsocketSession;
 import FuzeHttp.PermissionObject;
 
-namespace FuzeHttp { class State; } // firward declaration
+namespace FuzeHttp { class State; } // forward declaration
 
 export namespace FuzeHttp {
 /** Represents an active WebSocket connection to the server t. Vinnie

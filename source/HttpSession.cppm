@@ -10,6 +10,7 @@ module;
 #include <boost/optional.hpp>
 #include <boost/smart_ptr.hpp>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <print>

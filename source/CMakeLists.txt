@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 target_sources(FuzeHttp
   PRIVATE
     FuzeHttpServer.cpp
-    WebsocketSession.cpp
+    # WebsocketSession.cpp
   PUBLIC
     FILE_SET CXX_MODULES
     BASE_DIRS
@@ -19,7 +19,7 @@ target_sources(FuzeHttp
       PermissionSetting.cppm
       PermissionCollection.cppm
       PermissionObject.cppm
-      WebsocketSession.cppm
+      # WebsocketSession.cppm
     FILE_SET headers
     TYPE HEADERS
     BASE_DIRS

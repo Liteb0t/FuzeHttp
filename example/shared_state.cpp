@@ -16,7 +16,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
-import FuzeHttp.WebsocketSession;
+import FuzeHttp.State;
 
 using namespace FuzeHttp;
 
