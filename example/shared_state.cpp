@@ -9,22 +9,22 @@
 
 #include "FuzeHttpServer.hpp"
 // #include "PermissionObject.hpp"
-#include "shared_state.hpp"
-#include "WebsocketSession.hpp"
+// #include "shared_state.hpp"
+// #include "WebsocketSession.hpp"
 #include <boost/json/serialize.hpp>
 #include <boost/dll.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
+import FuzeHttp.WebsocketSession;
 
 using namespace FuzeHttp;
 
 // shared_state::shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates)
 //		: State(fuze_database_interface, std::move(busted_target_to_target), std::move(files_generated_from_templates)),
-shared_state::shared_state(FuzeHttp::Server* server, StateConfig config, bool create_owner_account)
-		: State(server),
+shared_state::shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, StateConfig config, bool create_owner_account)
+		: State(fuze_database_interface, document_root),
 		config(config),
-		// fuze_dbi(server->db),
 		media_location(server->program_directories.media) {
 	if (create_owner_account) {
 		std::string invite_key = this->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));

@@ -1,4 +1,4 @@
-#pragma once
+module;
 #include <boost/container/container_fwd.hpp>
 #include <boost/program_options/value_semantic.hpp>
 #include <sodium.h>
@@ -11,8 +11,9 @@
 #include <fstream>
 #include <print>
 #include <string>
+export module FuzeHttp.Utils;
 
-namespace FuzeHttp{
+export namespace FuzeHttp{
 template<typename T>
 std::string valueAsString(const T& value);
 
@@ -223,5 +224,16 @@ inline std::string getEtagFromFile(const std::filesystem::path& file) {
 	return getHash<boost::hash2::md5_128>(file_last_modified);
 }
 
-std::string writeManifestJson(const std::filesystem::path& manifest_file, const std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags, const std::string& combined_hash);
+std::string writeManifestJson(const std::filesystem::path& manifest_file, const std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags, const std::string& combined_hash) {
+	boost::json::object manifest_obj;
+	boost::json::object manifest_frontend_obj;
+	for (const auto& target : manifest_frontend_etags)
+		manifest_frontend_obj.emplace(target.first, target.second);
+	manifest_obj.emplace("frontend", manifest_frontend_obj);
+	manifest_obj.emplace("combined_hash", combined_hash);
+	std::ofstream manifest_json_out(manifest_file);
+	std::string json_as_str = boost::json::serialize(manifest_obj);
+	manifest_json_out.write(json_as_str.c_str(), json_as_str.length());
+	return json_as_str;
+}
 }; // namespace FuzeHttp

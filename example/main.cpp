@@ -3,7 +3,7 @@
 // Fuze Mediaboard was built on top of an example project by Vinnie Falco.
 // https://github.com/vinniefalco/CppCon2018
 
-#include "FuzeHttpUtils.hpp"
+// #include "FuzeHttpUtils.hpp"
 #include "FuzeHttpServer.hpp"
 // #include "PermissionObject.hpp"
 #include "shared_state.hpp"
@@ -28,6 +28,7 @@
 #include <vector>
 import FuzeHttp.Example.Migrations;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.Utils;
 import FuzeDBI;
 
 const std::string current_version = "0.1.4";
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]) {
 	try {
 		bool create_owner_account = server.variable_map.count("create_owner");
 		std::cout << std::flush;
-		state = new shared_state(&server, state_config, create_owner_account);
+		state = new shared_state(server.db, server.document_root, state_config, create_owner_account);
 		// state = new shared_state(server.db, server.document_root, server.media_location, state_config, std::move(busted_target_to_target), std::move(files_generated_from_templates));
 		state->start();
 	}

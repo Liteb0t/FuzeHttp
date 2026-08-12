@@ -11,13 +11,15 @@
 #define BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_SHARED_STATE_HPP
 
 #include "beast.hpp"
-#include "FuzeHttpState.hpp"
+// #include "FuzeHttpState.hpp"
 // #include "PermissionObject.hpp"
 #include <boost/smart_ptr.hpp>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <unordered_set>
 import FuzeHttp.PermissionObject;
+import FuzeHttp.State;
 import FuzeDBI;
 
 // Forward declaration
@@ -34,7 +36,8 @@ struct StateConfig {
 // Represents the shared server state
 class shared_state : public FuzeHttp::State {
 public:
-	shared_state(FuzeHttp::Server* server, StateConfig config, bool create_owner_account);
+	// TODO get secret from environment variable defined in config
+	shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, StateConfig config, bool create_owner_account);
 	// shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location_relative, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates);
 	const StateConfig config;
 	void start();
@@ -53,11 +56,9 @@ public:
 
 	const std::filesystem::path& getMediaLocation() const { return media_location; }
 	// const std::filesystem::path& getProgramLocation() const { return program_location; }
-	const char* getSecret() const { return this->secret_base64; }
 private:
 	const std::filesystem::path media_location;
 	// const std::filesystem::path program_location;
-	char secret_base64[sodium_base64_ENCODED_LEN(crypto_pwhash_SALTBYTES, sodium_base64_VARIANT_URLSAFE)];
 };
 
 #endif

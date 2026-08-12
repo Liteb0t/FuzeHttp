@@ -4,8 +4,9 @@
 // #include "FuzeHttp.hpp"
 // #include "PermissionObject.hpp"
 #include "shared_state.hpp"
-#include "sodium/crypto_generichash.h"
+#include "sodium.h"
 #include <boost/beast/http/status.hpp>
+#include <boost/json.hpp>
 #include <iostream>
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;

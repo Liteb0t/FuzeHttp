@@ -3,14 +3,16 @@
 #include "views.hpp"
 // #include "FuzeHttp.hpp"
 #include "FuzeHttpServer.hpp"
-#include "FuzeHttpUtils.hpp"
+// #include "FuzeHttpUtils.hpp"
 // #include "PermissionObject.hpp"
 #include "shared_state.hpp"
 #include <boost/beast/http/status.hpp>
+#include <boost/json.hpp>
 #include <iostream>
 #include <print>
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.Utils;
 import FuzeDBI;
 
 FuzeHttp::Response showMainPage(shared_state* state, FuzeHttp::Request req) {

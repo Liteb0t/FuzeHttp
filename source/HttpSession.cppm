@@ -1,20 +1,9 @@
-//
-// Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-// Official repository: https://github.com/vinniefalco/CppCon2018
-//
-
-#ifndef BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_HTTP_SESSION_HPP
-#define BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_HTTP_SESSION_HPP
-
+module;
 #include "beast.hpp"
 // #include "buildResponse.hpp"
 // #include "shared_state.hpp"
 // #include "FuzeHttp.hpp"
-#include "WebsocketSession.hpp"
+// #include "WebsocketSession.hpp"
 #include "Controller.hpp"
 
 #include <boost/asio.hpp>
@@ -23,9 +12,12 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <print>
+export module FuzeHttp.HttpSession;
 import FuzeHttp.Core;
+import FuzeHttp.State;
 
-namespace FuzeHttp {
+export namespace FuzeHttp {
 // Represents an established HTTP connection
 
 // Return a response for the given request.
@@ -178,4 +170,3 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 	}
 }
 } // namespace FuzeHttp
-#endif

@@ -1,4 +1,6 @@
 #include "FuzeHttpServer.hpp"
+#include <boost/hash2/md5.hpp>
+#include <boost/json.hpp>
 #include <fstream>
 #include <iostream>
 import FuzeHttp.Core;

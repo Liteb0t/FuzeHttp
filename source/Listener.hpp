@@ -13,13 +13,14 @@
 
 #include "beast.hpp"
 // #include "FuzeHttpState.hpp"
-#include "HttpSession.hpp"
+// #include "HttpSession.hpp"
 #include <boost/asio.hpp>
 #include <boost/smart_ptr.hpp>
 #include <iostream>
 #include <memory>
 #include <string>
 #include "urls.hpp"
+import FuzeHttp.HttpSession;
 
 // Forward declaration
 // class shared_state;

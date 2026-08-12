@@ -1,18 +1,7 @@
-#pragma once
-//
-// Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-// Official repository: https://github.com/vinniefalco/CppCon2018
-//
-
-#ifndef BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_WEBSOCKET_SESSION_HPP
-#define BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_WEBSOCKET_SESSION_HPP
-
+module;
 #include "beast.hpp"
-#include "FuzeHttpState.hpp"
+// #include "State_WebsocketSession_declarations.hpp"
+// #include "FuzeHttpState.hpp"
 #include <boost/asio.hpp>
 // #include <boost/hash2/sha1.hpp>
 #include <cstdlib>
@@ -21,10 +10,13 @@
 #include <print>
 #include <string>
 #include <vector>
+export module FuzeHttp.State:WebsocketSession;
+import FuzeHttp.PermissionObject;
 
-namespace FuzeHttp {
+namespace FuzeHttp { class State; } // firward declaration
 
-/** Represents an active WebSocket connection to the server
+export namespace FuzeHttp {
+/** Represents an active WebSocket connection to the server t. Vinnie
 */
 // template<typename StateType>
 class WebsocketSession : public boost::enable_shared_from_this<WebsocketSession> {
@@ -32,36 +24,10 @@ public:
 	WebsocketSession(boost::asio::ip::tcp::socket&& socket, State* state)
 			: ws_(std::move(socket)) , state_(state) {
 	}
-	~WebsocketSession() {
-		// Remove this session from the list of active sessions
-		state_->websocketLeave(this);
-		// state_->main_board()->removeListenerFromThread(this, this->tracking_thread);
-	}
+	~WebsocketSession();
 
 	template<class Body, class Allocator>
-	void run(http::request<Body, http::basic_fields<Allocator>> req) {
-		// Set suggested timeout settings for the websocket
-		ws_.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
-
-		// Set a decorator to change the Server of the handshake
-		ws_.set_option(websocket::stream_base::decorator(
-			[](websocket::response_type& res) {
-				res.set(http::field::server,
-					std::string(BOOST_BEAST_VERSION_STRING) +
-						" websocket-chat-multi");
-			}
-		));
-		this->client = this->state_->getClientIfExists(req);
-
-		// Accept the websocket handshake
-		ws_.async_accept(
-			req,
-			beast::bind_front_handler(
-				&WebsocketSession::on_accept,
-				this->shared_from_this()
-			)
-		);
-	} // WebsocketSession::run
+	void run(http::request<Body, http::basic_fields<Allocator>> req);
 
 	// Send a message
 	void send(std::shared_ptr<std::string const> const& ss) {
@@ -95,25 +61,7 @@ private:
 
 		std::cerr << what << ": " << ec.message() << "\n";
 	}
-	void on_accept(beast::error_code ec) {
-		// Handle the error, if any
-		if(ec)
-			return fail(ec, "accept");
-
-		// Add this session to the list of active sessions
-		state_->websocketJoin(this);
-
-		// db_test();
-
-		// Read a message
-		ws_.async_read(
-			buffer_,
-			beast::bind_front_handler(
-				&WebsocketSession::on_read,
-				this->shared_from_this()
-			)
-		);
-	}
+	void on_accept(beast::error_code ec);
 	virtual void readEvent(std::string buffer_data) {
 		std::println("[FuzeHttp] [virtual readEvent] websocket buffer data: {}", buffer_data);
 	}
@@ -179,4 +127,3 @@ private:
 }; // class WebsocketSession
 
 } // namespace FuzeHttp
-#endif
