@@ -166,9 +166,21 @@ public:
 			this->secret_base64 = secret_base64_a;
 		}
 		else if (secret_required)
-			throw std::runtime_error(std::format("Environment variable {} not found", environment_variable_for_secret));
+			throw std::runtime_error(std::format("Environment variable {} not found. Specify `environment_variable_for_secret` OR set secret_required=false", environment_variable_for_secret));
 		else
 			std::println("Warning: Environment variable {} not found. Continuing anyway because secret_required is set to false.", environment_variable_for_secret);
+	}
+	std::string getIntermediateSaltFromAccount(int account_id) {
+		return db->query<std::string>("SELECT intermediate_salt_base64 FROM account WHERE id = $1", account_id);
+	}
+	const FuzeHttp::Client& getClientFromAccountId(int account_id) const { // We assume the account with the ID is already checked
+		if (!this->accounts.at(account_id).client_id)
+			throw std::runtime_error(std::format("[getClientFromAccountId] No client ID assigned to account {}", account_id));
+		int client_id = this->accounts.at(account_id).client_id.value();
+		auto it = this->clients.find(client_id);
+		if (it == this->clients.end())
+			throw std::runtime_error(std::format("Account {} refers to Client {} which does not exist", account_id, client_id));
+		return it->second;
 	}
 	// const std::unordered_map<std::string, std::string> busted_target_to_target;
 	// const std::unordered_set<std::string> files_generated_from_templates;
