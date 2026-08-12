@@ -26,7 +26,7 @@
 #include <print>
 #include <string>
 #include <vector>
-import FuzeHttp.Example.Migrations;
+// import FuzeHttp.Example.Migrations;
 import FuzeHttp.PermissionObject;
 import FuzeHttp.Utils;
 import FuzeDBI;
@@ -53,26 +53,19 @@ std::vector<FuzeHttp::TemplateMacro*> template_macros{
 // } template_options_struct;
 
 int main(int argc, char* argv[]) {
-	StateConfig state_config;	// Macros which link to state_config
+	// runtime config
+	StateConfig state_config;
 	template_macros.push_back(new TemplateOptionPtr("site_name", &state_config.server_name, {.default_value=std::string("FuzeHttp Example")}));
-	FuzeHttp::Server server(current_version);
+
+	std::cout << "Initialising shared state..." << std::endl;
+	// shared_state state(state_config);
+	// state.start();
+
+	FuzeHttp::Server<shared_state> server(current_version);
+	server.state->config = state_config;
 	if (int return_code; (return_code = server.processOptions(argc, argv, template_macros, project_name)) != -1)
 		return return_code;
-	std::cout << "Initialising shared state..." << std::endl;
-	shared_state* state;
-	try {
-		bool create_owner_account = server.variable_map.count("create_owner");
-		std::cout << std::flush;
-		state = new shared_state(server.db, server.document_root, state_config, create_owner_account);
-		// state = new shared_state(server.db, server.document_root, server.media_location, state_config, std::move(busted_target_to_target), std::move(files_generated_from_templates));
-		state->start();
-	}
-	catch (const std::exception& exception) {
-		std::cerr << "[shared_state] " << exception.what() << std::endl;
-		return 1;
-	}
-	auto migrations = addMigrations(state);
-	server.run(state, std::move(migrations));
+	server.run();
 
 
 	return EXIT_SUCCESS;

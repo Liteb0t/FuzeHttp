@@ -7,6 +7,7 @@
 // Official repository: https://github.com/vinniefalco/CppCon2018
 //
 
+#include "shared_state.hpp"
 #include "FuzeHttpServer.hpp"
 // #include "PermissionObject.hpp"
 // #include "shared_state.hpp"
@@ -22,18 +23,11 @@ using namespace FuzeHttp;
 
 // shared_state::shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates)
 //		: State(fuze_database_interface, std::move(busted_target_to_target), std::move(files_generated_from_templates)),
-shared_state::shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, StateConfig config, bool create_owner_account)
-		: State(fuze_database_interface, document_root),
-		config(config),
-		media_location(server->program_directories.media) {
-	if (create_owner_account) {
-		std::string invite_key = this->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
-		std::cout << std::endl << "Use this link to register the owner account: http://localhost:" << this->server->server_port << "/invite/" << invite_key << std::endl;
-	}
-	else if (!this->ownerExists())
-		std::println("\nERROR: No owner found. Restart the application with --create_owner");
-
-}
+// shared_state::shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, StateConfig config, bool create_owner_account)
+// 		: State(fuze_database_interface, document_root),
+// 		config(config),
+// 		media_location(server->program_directories.media) {
+// }
 
 // shared_from_this cannot be used in a constructor; see https://stackoverflow.com/questions/5558734/c-bad-weak-ptr-error
 // hence a seperate start() function is used
@@ -43,7 +37,23 @@ void shared_state::start() {
 	// this->boards.emplace(0, main_board);
 	// this->boards.at(0).cacheAllThreads();
 }
-
+std::list<std::unique_ptr<Migrations::Migration>> shared_state::addMigrations() {
+	std::list<std::unique_ptr<Migrations::Migration>> migrations;
+	/* Example migrations:
+	migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.1",
+		"ALTER TABLE message_file ADD COLUMN width INTEGER;"
+		"ALTER TABLE message_file ADD COLUMN height INTEGER;")));
+	migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.2",
+		"ALTER TABLE message_file ADD COLUMN thumbnail_file_extension TEXT;"
+		"ALTER TABLE thread ADD COLUMN message_id_seq INTEGER DEFAULT 0;"
+		"UPDATE thread SET message_id_seq = 1000")));
+	migrations.push_back(std::unique_ptr<Migration>(new SmartMigration("0.2.2", state, [](FuzeDBI::Connection* db, shared_state* state){
+		const std::string version_string = db->query<std::string>("SELECT version FROM _info");
+		std::println("This is the lambda and document_root is {} and version string is {}", state->getDocumentRoot().string(), version_string);
+	})));
+	*/
+	return migrations;
+}
 std::string shared_state::getIntermediateSaltFromAccount(int account_id) {
 	return db->query<std::string>("SELECT intermediate_salt_base64 FROM account WHERE id = $1", account_id);
 }

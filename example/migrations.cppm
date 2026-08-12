@@ -4,10 +4,10 @@ module;
 #include <memory>
 #include <print>
 export module FuzeHttp.Example.Migrations;
-import FuzeHttp.Migrations;
 using namespace FuzeHttp::Migrations;
 
-export std::list<std::unique_ptr<Migration>> addMigrations(shared_state* state) {
+// export std::list<std::unique_ptr<Migration>> addMigrations(shared_state* state) {
+std::list<std::unique_ptr<Migration>> shared_state::addMigrations() {
 	std::list<std::unique_ptr<Migration>> migrations;
 	/* Example migrations:
 	migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.1",

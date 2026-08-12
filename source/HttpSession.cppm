@@ -67,7 +67,7 @@ private:
 
 		// Apply a reasonable limit to the allowed size
 		// of the body in bytes to prevent abuse.
-		parser_->body_limit(this->state_->server->parser_body_size_limit_mb << 20);
+		parser_->body_limit(this->state_->parser_body_size_limit_mb << 20);
 		// parser_->body_limit(25 << 20);
 
 		// Set the timeout.

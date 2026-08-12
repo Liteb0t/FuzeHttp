@@ -15,20 +15,17 @@
 // #include "PermissionObject.hpp"
 #include <boost/smart_ptr.hpp>
 #include <filesystem>
+#include <list>
 #include <mutex>
 #include <string>
 #include <unordered_set>
+import FuzeHttp.Migrations;
 import FuzeHttp.PermissionObject;
 import FuzeHttp.State;
 import FuzeDBI;
 
 // Forward declaration
 class WebsocketSession;
-namespace FuzeHttp{
-	// class State;
-	class Server;
-};
-
 struct StateConfig {
 	std::string server_name;
 };
@@ -36,11 +33,13 @@ struct StateConfig {
 // Represents the shared server state
 class shared_state : public FuzeHttp::State {
 public:
+	shared_state(FuzeDBI::Connection* db) : State(db) {}
 	// TODO get secret from environment variable defined in config
-	shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, StateConfig config, bool create_owner_account);
+	// shared_state(StateConfig config) : Stateconfig(config) {}
 	// shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location_relative, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates);
-	const StateConfig config;
-	void start();
+	StateConfig config;
+	void start() override;
+	std::list<std::unique_ptr<FuzeHttp::Migrations::Migration>> addMigrations() override;
 
 	// FuzeDBI::Connection* fuze_dbi;
 
@@ -57,7 +56,6 @@ public:
 	const std::filesystem::path& getMediaLocation() const { return media_location; }
 	// const std::filesystem::path& getProgramLocation() const { return program_location; }
 private:
-	const std::filesystem::path media_location;
 	// const std::filesystem::path program_location;
 };
 

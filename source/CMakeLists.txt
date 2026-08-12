@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 
 target_sources(FuzeHttp
-  PRIVATE
-    FuzeHttpServer.cpp
+  # PRIVATE
+    # FuzeHttpServer.cpp
     # WebsocketSession.cpp
   PUBLIC
     FILE_SET CXX_MODULES

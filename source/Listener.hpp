@@ -25,8 +25,6 @@ import FuzeHttp.HttpSession;
 // Forward declaration
 // class shared_state;
 namespace FuzeHttp {
-class Server;
-
 // Accepts incoming connections and launches the sessions
 template<class StateType, class WebsocketSessionType>
 class Listener : public boost::enable_shared_from_this<Listener<StateType, WebsocketSessionType>> {

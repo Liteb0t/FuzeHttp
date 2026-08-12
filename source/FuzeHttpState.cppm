@@ -7,12 +7,14 @@ module;
 // #include "WebsocketSession.hpp"
 #include <filesystem>
 #include <iostream>
+#include <list>
 #include <print>
 #include <sodium.h>
 #include <unordered_set>
 export module FuzeHttp.State;
 import FuzeDBI;
 import FuzeHttp.Core;
+import FuzeHttp.Migrations;
 import FuzeHttp.Utils;
 // export import :WebsocketSession;
 // import State_WebsocketSession_declarations;
@@ -27,9 +29,7 @@ export namespace FuzeHttp {
 class WebsocketSession;
 class State : public PermissionManager {
 public:
-	// State(FuzeDBI::Connection* fuze_dbi, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates);
-	State(FuzeDBI::Connection* db, std::filesystem::path document_root)
-		: PermissionManager(0, db), db(db), document_root(document_root) {
+	State(FuzeDBI::Connection* db) : PermissionManager(0, db), db(db) {
 		this->loadSessions();
 		this->loadClients();
 		// Link accounts to clients
@@ -43,6 +43,24 @@ public:
 				std::cout << "Account " <<account_id << " = Client " <<client_pair.first << std::endl;
 			}
 		}
+	}
+	virtual void start() {} // called after options set
+	virtual std::list<std::unique_ptr<Migrations::Migration>> addMigrations() {
+		std::list<std::unique_ptr<Migrations::Migration>> migrations;
+		/* Example migrations:
+		migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.1",
+			"ALTER TABLE message_file ADD COLUMN width INTEGER;"
+			"ALTER TABLE message_file ADD COLUMN height INTEGER;")));
+		migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.2",
+			"ALTER TABLE message_file ADD COLUMN thumbnail_file_extension TEXT;"
+			"ALTER TABLE thread ADD COLUMN message_id_seq INTEGER DEFAULT 0;"
+			"UPDATE thread SET message_id_seq = 1000")));
+		migrations.push_back(std::unique_ptr<Migration>(new SmartMigration("0.2.2", state, [](FuzeDBI::Connection* db, shared_state* state){
+			const std::string version_string = db->query<std::string>("SELECT version FROM _info");
+			std::println("This is the lambda and document_root is {} and version string is {}", state->getDocumentRoot().string(), version_string);
+		})));
+		*/
+		return migrations;
 	}
 	std::optional<Client> getClientIfExists(FuzeHttp::Request req) const {
 		auto cookie_header = req.find("Cookie");
@@ -140,6 +158,13 @@ public:
 	// virtual void start() {};
 	// FuzeHttp::Server* server;
 	FuzeDBI::Connection* db;
+	std::filesystem::path document_root;
+	std::filesystem::path media_location;
+	std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags;
+	std::unordered_map<std::string, std::string> busted_target_to_target;
+	std::unordered_set<std::string> files_generated_from_templates;
+	std::string frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
+	unsigned int parser_body_size_limit_mb;
 protected:
 	const std::optional<Client> getClientFromSession(const std::string& session_id_base64) const {
 		if (std::unordered_map<std::string, FuzeHttp::Session>::const_iterator session = this->sessions.find(session_id_base64); session != this->sessions.end())
@@ -160,7 +185,6 @@ protected:
 	std::unordered_map<std::string /*key_base64*/, Invite> invites;
 	// Keep a list of all the websocket-connected clients
 	std::unordered_set<FuzeHttp::WebsocketSession*> websocket_sessions;
-	std::filesystem::path document_root;
 	// std::unordered_map<std::filesystem::path, std::string> document_etags;
 	// FuzeDBI::Connection* fuze_dbi;
 	std::vector<FuzeHttp::TemplateMacro*> options;
