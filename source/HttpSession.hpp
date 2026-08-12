@@ -11,15 +11,19 @@
 #define BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_HTTP_SESSION_HPP
 
 #include "beast.hpp"
+// #include "buildResponse.hpp"
 // #include "shared_state.hpp"
-#include "FuzeHttp.hpp"
+// #include "FuzeHttp.hpp"
 #include "WebsocketSession.hpp"
+#include "Controller.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
 #include <boost/smart_ptr.hpp>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
+import FuzeHttp.Core;
 
 namespace FuzeHttp {
 // Represents an established HTTP connection

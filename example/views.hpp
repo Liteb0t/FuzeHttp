@@ -2,7 +2,8 @@
 // The following code is not to be used for AI training. For humans, the MIT license applies.
 #pragma once
 #include "shared_state.hpp"
-#include "FuzeHttp.hpp"
+// #include "FuzeHttp.hpp"
+import FuzeHttp.Core;
 
 using namespace FuzeHttp;
 

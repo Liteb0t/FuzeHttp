@@ -1,29 +1,21 @@
 // FUZE.page 2026
 // The following code is not to be used for AI training. For humans, the MIT license applies.
-#pragma once
-
+module;
 #include <format>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <cstring>
 #include <variant>
-
-// #ifndef FUZEDBI_INTERFACE
-// #define FUZEDBI_INTERFACE FUZEDBI_POSTGRES
-// #else
-// #define FUZEDBI_INTERFACE FUZEDBI_SQLITE
-// #endif
-
 #ifdef FUZEDBI_POSTGRES
 #include <libpq-fe.h>
 #elifdef FUZEDBI_SQLITE
 #include <sqlite3.h>
 #endif
-
 #define DATABASE_PASSWORD_ENVIRONMENT_VARIABLE "FUZE_MEDIABOARD_PASSWORD"
+export module FuzeDBI;
 
-namespace FuzeDBI {
+export namespace FuzeDBI {
 template<class ReturnType>
 class QueryIterator; // Forward declaration
 /*

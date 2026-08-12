@@ -1,7 +1,7 @@
 #include "FuzeHttpServer.hpp"
-#include "FuzeHttp.hpp"
 #include <fstream>
 #include <iostream>
+import FuzeHttp.Core;
 
 FuzeHttp::Server::Server(const std::string current_version) : current_version(current_version) {
 	if (sodium_init() < 0) {

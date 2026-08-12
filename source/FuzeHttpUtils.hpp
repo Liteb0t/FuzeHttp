@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/container/container_fwd.hpp>
 #include <boost/program_options/value_semantic.hpp>
 #include <sodium.h>
 #include <boost/algorithm/string/replace.hpp>

@@ -1,5 +1,4 @@
 module;
-#include "FuzeDBI.hpp"
 // #include "FuzeMigrationHelper.hpp"
 #include <iostream>
 #include <filesystem>
@@ -11,6 +10,7 @@ module;
 #include <sstream>
 #include <print>
 export module FuzeHttp.Migrations;
+import FuzeDBI;
 
 export namespace FuzeHttp {
 namespace Migrations {
@@ -37,19 +37,22 @@ public:
 	SmartMigration(const std::string version_string, StateType* state, Callback&& func) : Migration(version_string), blaaaarg(state), func(std::forward<Callback>(func)) {}
 	void makeMigration(FuzeDBI::Connection* fuze_dbi) override {
 		std::println("[Migrations] SmartMigration");
-		this->func(blaaaarg);
+		this->func(fuze_dbi, blaaaarg);
 	}
 	// const void(*function)(int blaaaarg);
-	std::function<void(StateType*)> func;
+	std::function<void(FuzeDBI::Connection*, StateType*)> func;
 	StateType* blaaaarg;
 };
 // std::list<std::unique_ptr<Migration>> migrations;
-void makeNewMigrations(FuzeDBI::Connection* fuze_dbi, const std::string& database_version_string, const std::string& current_version, const std::list<std::unique_ptr<Migration>>&& migrations) {
+void makeNewMigrations(FuzeDBI::Connection* fuze_dbi, const std::string& database_version_string, const std::string& server_version, const std::list<std::unique_ptr<Migration>>&& migrations) {
 	println("Database version: \t{}", database_version_string);
-	println("Server version:   \t{}", current_version);
+	println("Server version:   \t{}", server_version);
 
 	int migrations_needed = 0; // 0=no, 1=yes (prompt), 2=yes (user accepted prompt)
 	for (const std::unique_ptr<Migration>& migration : migrations) {
+		if (migration->version_string > server_version) {
+			throw std::runtime_error("There is an error in configuration for migrations; migration has newer version than server_version");
+		}
 		if (database_version_string < migration->version_string) {
 			if (migrations_needed != 2) {
 				migrations_needed = 1;
@@ -68,7 +71,7 @@ void makeNewMigrations(FuzeDBI::Connection* fuze_dbi, const std::string& databas
 		}
 	}
 
-	fuze_dbi->query<void>("UPDATE _info SET version = $1", current_version);
+	fuze_dbi->query<void>("UPDATE _info SET version = $1", server_version);
 }
 // Populates database with entries in database_template.sql, and sets the version
 void firstTimeSetup(FuzeDBI::Connection* fuze_dbi, const std::filesystem::path& template_path, const std::filesystem::path& absolute_sqlite_path, const std::string& current_version) {

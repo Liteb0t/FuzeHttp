@@ -3,6 +3,7 @@
 #define BOOST_DLL_USE_STD_FS
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
+#include <list>
 #include "FuzeHttpUtils.hpp"
 import FuzeHttp.Migrations;
 

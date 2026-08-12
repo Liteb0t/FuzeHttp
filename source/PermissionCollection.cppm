@@ -1,9 +1,10 @@
 module;
-#include "FuzeDBI.hpp"
 // #include "PermissionSetting.hpp"
+#include <optional>
 #include <unordered_map>
 export module FuzeHttp.PermissionCollection;
 export import FuzeHttp.PermissionSetting;
+import FuzeDBI;
 
 export namespace FuzeHttp {
 enum struct ACCOUNT_OR_GROUP {ACCOUNT, GROUP};

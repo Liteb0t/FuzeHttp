@@ -1,5 +1,4 @@
 module;
-#include "FuzeDBI.hpp"
 // #include "Group.hpp"
 #include <boost/json/object.hpp>
 #include <iostream>
@@ -10,6 +9,7 @@ export module FuzeHttp.PermissionObject;
 
 export import FuzeHttp.Group;
 export import FuzeHttp.PermissionCollection;
+import FuzeDBI;
 
 export namespace FuzeHttp {
 enum class BUILTIN_GROUPS {

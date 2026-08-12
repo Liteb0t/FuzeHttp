@@ -16,6 +16,7 @@
 #include "HttpSession.hpp"
 #include <boost/asio.hpp>
 #include <boost/smart_ptr.hpp>
+#include <iostream>
 #include <memory>
 #include <string>
 #include "urls.hpp"

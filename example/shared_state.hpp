@@ -11,7 +11,6 @@
 #define BOOST_BEAST_EXAMPLE_WEBSOCKET_CHAT_MULTI_SHARED_STATE_HPP
 
 #include "beast.hpp"
-#include "FuzeDBI.hpp"
 #include "FuzeHttpState.hpp"
 // #include "PermissionObject.hpp"
 #include <boost/smart_ptr.hpp>
@@ -19,6 +18,7 @@
 #include <string>
 #include <unordered_set>
 import FuzeHttp.PermissionObject;
+import FuzeDBI;
 
 // Forward declaration
 class WebsocketSession;

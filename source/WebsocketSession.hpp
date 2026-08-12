@@ -16,6 +16,7 @@
 #include <boost/asio.hpp>
 // #include <boost/hash2/sha1.hpp>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <print>
 #include <string>

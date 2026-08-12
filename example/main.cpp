@@ -28,6 +28,7 @@
 #include <vector>
 import FuzeHttp.Example.Migrations;
 import FuzeHttp.PermissionObject;
+import FuzeDBI;
 
 const std::string current_version = "0.1.4";
 #ifdef PROJECT_FOLDER
