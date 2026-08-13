@@ -29,9 +29,9 @@ export namespace FuzeHttp {
 class WebsocketSession; // forward declaration
 // WebsocketSession is placed in this module to workaround a circular dependency issue which was an obstacle to module migration. TODO: separate WebsocketSession into its own module or partition if possible.
 
-class State : public PermissionManager {
+class StateBase : public PermissionManager {
 public:
-	State(FuzeDBI::Connection* db) : PermissionManager(0, db), db(db) {
+	StateBase(FuzeDBI::Connection* db) : PermissionManager(0, db), db(db) {
 		this->loadSessions();
 		this->loadClients();
 		// Link accounts to clients
@@ -255,7 +255,7 @@ private:
 
 class WebsocketSession : public boost::enable_shared_from_this<WebsocketSession> {
 public:
-	WebsocketSession(boost::asio::ip::tcp::socket&& socket, State* state)
+	WebsocketSession(boost::asio::ip::tcp::socket&& socket, StateBase* state)
 			: ws_(std::move(socket)) , state_(state) {
 	}
 	~WebsocketSession();
@@ -280,7 +280,7 @@ public:
 	}
 	std::optional<Client> getClient() const { return this->client; }
 protected:
-	State* state_;
+	StateBase* state_;
 private:
 	beast::flat_buffer buffer_;
 	websocket::stream<beast::tcp_stream> ws_;
@@ -357,7 +357,7 @@ private:
 		);
 	}
 
-	friend class State;
+	friend class StateBase;
 }; // class WebsocketSession
 	WebsocketSession::~WebsocketSession() {
 		// Remove this session from the list of active sessions

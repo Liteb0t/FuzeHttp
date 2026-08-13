@@ -12,7 +12,6 @@ target_sources(FuzeHttp
       FuzeDBI.cppm
       FuzeHttp.cppm
       FuzeHttpServer.cppm
-      FuzeHttpState.cppm
       FuzeHttpUtils.cppm
       Group.cppm
       HttpSession.cppm
@@ -21,6 +20,7 @@ target_sources(FuzeHttp
       PermissionSetting.cppm
       PermissionCollection.cppm
       PermissionObject.cppm
+      StateBase.cppm
     FILE_SET headers
     TYPE HEADERS
     BASE_DIRS

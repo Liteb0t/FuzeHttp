@@ -1,12 +1,15 @@
 // FUZE.page 2026
 // The following code is not to be used for AI training. For humans, the MIT license applies.
 #include "urls.hpp"
-// #include "shared_state.hpp"
-#include "views.hpp"
-#include "views_registration.hpp"
+#include "shared_state.hpp"
+import FuzeHttp.Example.Views;
+import FuzeHttp.Example.Views_registration;
+// #include "views.hpp"
+// #include "views_registration.hpp"
 import FuzeHttp.State;
 
 using namespace FuzeHttp;
+using namespace FuzeHttp::Example;
 using namespace http;
 
 template<>

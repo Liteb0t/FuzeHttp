@@ -1,6 +1,9 @@
 #pragma once
 #include "beast.hpp"
+#include <filesystem>
+#include <print>
 import FuzeHttp.Core;
+import FuzeHttp.Utils;
 import FuzeHttp.PermissionObject;
 
 namespace FuzeHttp {
@@ -101,8 +104,52 @@ public:
 		Response res = std::apply(view_func, std::tuple_cat(std::tie(state, req), /* extra_args */ view_args));
 		if (set_session_for_client_id) {
 			std::string session_id_base64 = state->createSession(set_session_for_client_id.value());
-			if (!res.headers) res.headers.emplace();
-			res.headers->insert({"Set-Cookie", formatCookie(session_id_base64)});
+			res.headers.insert({"Set-Cookie", formatCookie(session_id_base64)});
+		}
+		if (res.file) { // cache controle
+			if (std::filesystem::is_directory(res.file.value()))
+				res.file = res.file.value() / "index.html";
+			std::print("manifest_frontend_etags: ");
+			for (const auto& target : state->manifest_frontend_etags)
+				std::println("{} :: {}", target.first, target.second);
+
+			std::println("Busted target to target:");
+			for (const auto& target :state-> busted_target_to_target)
+				std::println("{} :: {}", target.first, target.second);
+			std::string target = std::filesystem::proximate(res.file.value(), state->getDocumentRoot()).string();
+			std::println("Proximate target (pre):  {}", target);
+
+			if (target.empty() || target.ends_with('/'))
+				target += "index.html";
+			// Is static asset
+			if (auto it = state->busted_target_to_target.find(target); it != state->busted_target_to_target.end()) {
+				target = it->second;
+				res.file = state->getDocumentRoot() / target;
+				res.headers.emplace("Cache-Control", "max-age=7750000, immutable");
+			}
+			// If path leads to target of .GENERATED file, add the filename extension
+			else if (auto it = state->files_generated_from_templates.find(target); it != state->files_generated_from_templates.end()) {
+				target = FuzeHttp::insertExtensionToFileName(*it, ".GENERATED");
+				res.file = state->getDocumentRoot() / target;
+				res.headers.emplace("Cache-Control", "no-cache");
+			}
+			std::println("[showMainPage] will serve {}", target);
+			std::string etag;
+			if (std::unordered_map<std::string /*target*/, std::string /*etag*/>::const_iterator it = state->manifest_frontend_etags.find(target); it != state->manifest_frontend_etags.end()) {
+				std::println("Found manifest etag {}", it->second);
+				etag = it->second;
+			}
+			else
+				etag = state->frontend_etag;
+
+			if (auto if_none_match_header = req.find("If-None-Match"); if_none_match_header != req.end()) {
+				std::string if_none_match_header_value = if_none_match_header->value();
+				if (etag == if_none_match_header_value) {
+					return {.status=http::status::not_modified};
+				}
+			}
+			res.headers.emplace("ETag", etag);
+			std::println("Proximate target (post):  {}", target);
 		}
 		return res;
 	}

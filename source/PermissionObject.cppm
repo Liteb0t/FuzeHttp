@@ -37,24 +37,24 @@ class PermissionObjectBase {
 	friend class PermissionManagedObject;
 	friend class PermissionManager;
 public:
-	PermissionObjectBase(int permission_object_id, FuzeDBI::Connection* fuze_dbi) // On extraction from database
+	PermissionObjectBase(int permission_object_id, FuzeDBI::Connection* db) // On extraction from database
 			: id(permission_object_id),
-			fuze_dbi(fuze_dbi) {
+			db(db) {
 		this->cacheAllPermissions();
 	} // retrieve from database
-	PermissionObjectBase(FuzeDBI::Connection* fuze_dbi) // On new object creation
-			: fuze_dbi(fuze_dbi),
-			id(fuze_dbi->query<int>("SELECT permission_object_id FROM _sequences")) {
-		fuze_dbi->query<void>("UPDATE _sequences SET permission_object_id = $1", this->id+1);
+	PermissionObjectBase(FuzeDBI::Connection* db) // On new object creation
+			: db(db),
+			id(db->query<int>("SELECT permission_object_id FROM _sequences")) {
+		db->query<void>("UPDATE _sequences SET permission_object_id = $1", this->id+1);
 	}
 	void cacheAllPermissions() {
 		std::cout << "[PermissionObjectBase] retrieving permissions for " << this->id << ": ";
-		for (auto permission_collection_tuple : fuze_dbi->queryRows<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
+		for (auto permission_collection_tuple : db->queryRows<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
 			std::optional<int> account_id = std::get<1>(permission_collection_tuple);
 			std::optional<int> group_id = std::get<2>(permission_collection_tuple);
 			PermissionCollection permission_collection(std::get<0>(permission_collection_tuple), account_id, group_id);
 
-			for (auto permission_setting_tuple : fuze_dbi->queryRows<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
+			for (auto permission_setting_tuple : db->queryRows<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
 				std::cout << std::get<0>(permission_setting_tuple) << ", ";
 				permission_collection.addPermissionSetting(std::get<0>(permission_setting_tuple), static_cast<PERMISSION>(std::get<1>(permission_setting_tuple)), static_cast<THREE_STATE_SETTING>(std::get<2>(permission_setting_tuple)));
 			}
@@ -68,9 +68,9 @@ public:
 	void addGroupPermissionCollection(int group_id) {
 		if (this->permissionCollectionExistsForGroup(group_id))
 			throw std::runtime_error(std::format("Attempted to create duplicate permission collection for group {}", group_id));
-		int new_permission_collection_id = fuze_dbi->query<int>("SELECT permission_collection_id FROM _sequences");
-		fuze_dbi->query<void>("UPDATE _sequences SET permission_collection_id = $1", new_permission_collection_id+1);
-		fuze_dbi->query<void>("INSERT INTO permission_collection(id, permission_object_id, permission_group_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, group_id);
+		int new_permission_collection_id = db->query<int>("SELECT permission_collection_id FROM _sequences");
+		db->query<void>("UPDATE _sequences SET permission_collection_id = $1", new_permission_collection_id+1);
+		db->query<void>("INSERT INTO permission_collection(id, permission_object_id, permission_group_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, group_id);
 		std::cout << "[PermissionObjectBase] adding group permission_collection for group " << group_id << std::endl;
 		PermissionCollection permission_collection(new_permission_collection_id, {}, group_id);
 		this->group_permissions.emplace(group_id, permission_collection);
@@ -78,9 +78,9 @@ public:
 	void addAccountPermissionCollection(int account_id) {
 		if (this->permissionCollectionExistsForAccount(account_id))
 			throw std::runtime_error(std::format("Attempted to create duplicate permission collection for account {}", account_id));
-		int new_permission_collection_id = fuze_dbi->query<int>("SELECT permission_collection_id FROM _sequences");
-		fuze_dbi->query<void>("UPDATE _sequences SET permission_collection_id = $1", new_permission_collection_id+1);
-		fuze_dbi->query<void>("INSERT INTO permission_collection(id, permission_object_id, account_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, account_id);
+		int new_permission_collection_id = db->query<int>("SELECT permission_collection_id FROM _sequences");
+		db->query<void>("UPDATE _sequences SET permission_collection_id = $1", new_permission_collection_id+1);
+		db->query<void>("INSERT INTO permission_collection(id, permission_object_id, account_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, account_id);
 		std::cout << "[PermissionObjectBase] adding account permission_collection for account " << account_id << std::endl;
 		PermissionCollection permission_collection(new_permission_collection_id, account_id, {});
 		this->account_permissions.emplace(account_id, permission_collection);
@@ -89,24 +89,24 @@ public:
 		auto it = this->group_permissions.find(group_id);
 		if (it == this->group_permissions.end())
 			throw std::runtime_error(std::format("Attempted to delete group {} which doesn't exist", group_id));
-		fuze_dbi->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
+		db->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
 		this->group_permissions.erase(it);
 	}
 	void removeAccountPermissionCollection(int account_id) {
 		if (!this->account_permissions.contains(account_id))
 			throw std::runtime_error(std::format("Attempted to delete account {} which doesn't exist", account_id));
-		fuze_dbi->query<void>("DELETE FROM permission_collection WHERE account_id = $1", account_id);
+		db->query<void>("DELETE FROM permission_collection WHERE account_id = $1", account_id);
 		this->account_permissions.erase(account_id);
 	}
 	void setGroupPermission(int group_id, PERMISSION permission_type, THREE_STATE_SETTING setting) {
 		if (!this->group_permissions.contains(group_id))
 			this->addGroupPermissionCollection(group_id);
-		this->group_permissions.at(group_id).setPermission(permission_type, setting, fuze_dbi);
+		this->group_permissions.at(group_id).setPermission(permission_type, setting, db);
 	}
 	void setAccountPermission(int user_id, PERMISSION permission_type, THREE_STATE_SETTING setting) {
 		if (auto it = this->account_permissions.find(user_id); it == this->account_permissions.end())
 			this->addAccountPermissionCollection(user_id);
-		this->account_permissions.at(user_id).setPermission(permission_type, setting, fuze_dbi);
+		this->account_permissions.at(user_id).setPermission(permission_type, setting, db);
 	}
 	bool passPermissionForGroup(bool inherited_permission, PERMISSION permission, int group_id) const {
 		inherited_permission = this->passInheritedPermissionForGroup(inherited_permission, permission, group_id);
@@ -210,17 +210,17 @@ public:
 	}
 protected:
 	int getPermissionObjectId() const { return this->id; }
+	FuzeDBI::Connection* db;
 private:
 	int id;
-	FuzeDBI::Connection* fuze_dbi;
 	std::unordered_map<int, PermissionCollection> group_permissions;
 	std::unordered_map<int, PermissionCollection> account_permissions;
 };
 
 class PermissionManager : public PermissionObjectBase {
 public:
-	PermissionManager(int permission_object_id, FuzeDBI::Connection* fuze_dbi)
-			: PermissionObjectBase(0, fuze_dbi) {
+	PermissionManager(int permission_object_id, FuzeDBI::Connection* db)
+			: PermissionObjectBase(0, db) {
 		this->cacheAllGroups();
 		this->cacheAllAccounts();
 		this->grantOwnerPrivileges();
@@ -271,12 +271,12 @@ public:
 	   	return it != this->username_to_id_map.end();
 	};
 	bool accountMatchesPassword(int account_id, const std::string& password) {
-		for (int id :fuze_dbi->queryRows<int>("SELECT id FROM account WHERE password_hash_hash_base64 = $1", password))
+		for (int id :db->queryRows<int>("SELECT id FROM account WHERE password_hash_hash_base64 = $1", password))
 			return true;
 		return false;
 	}
 	void changeAccountPassword(int account_id, const char* password_hash_hash_base64, const char* intermediate_salt_base64) {
-		fuze_dbi->query<void>("UPDATE account SET password_hash_hash_base64 = $1, intermediate_salt_base64 = $2 WHERE id = $3", password_hash_hash_base64, intermediate_salt_base64, account_id);
+		db->query<void>("UPDATE account SET password_hash_hash_base64 = $1, intermediate_salt_base64 = $2 WHERE id = $3", password_hash_hash_base64, intermediate_salt_base64, account_id);
 	}
 	// bool checkUserKey(int user_id, std::string key) const {
 	// 	return this->users.at(user_id).keyMatches(key);
@@ -296,10 +296,10 @@ public:
 		for (int member_id : this->groups.at(group_id).getMembers()) {
 			this->removeUserFromGroup(member_id, group_id);
 		}
-		for (int permission_collection_id : fuze_dbi->queryRows<int>("SELECT id FROM permission_collection WHERE permission_group_id = $1", group_id))
-			fuze_dbi->query<void>("DELETE FROM permission_setting WHERE permission_collection_id = $1", permission_collection_id);
-		fuze_dbi->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
-		fuze_dbi->query<void>("DELETE FROM permission_group WHERE id = $1", group_id);
+		for (int permission_collection_id : db->queryRows<int>("SELECT id FROM permission_collection WHERE permission_group_id = $1", group_id))
+			db->query<void>("DELETE FROM permission_setting WHERE permission_collection_id = $1", permission_collection_id);
+		db->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
+		db->query<void>("DELETE FROM permission_group WHERE id = $1", group_id);
 		this->ordered_groups.erase(it);
 		this->groups.erase(group_id);
 		this->saveGroupHeirarchy();
@@ -312,14 +312,14 @@ public:
 	}
 	void removeUserFromGroup(int account_id, int group_id) {
 		this->groups.at(group_id).removeMember(account_id);
-		fuze_dbi->query<void>("DELETE FROM permission_group_account WHERE permission_group_id = $1 AND account_id = $2", group_id, account_id);
+		db->query<void>("DELETE FROM permission_group_account WHERE permission_group_id = $1 AND account_id = $2", group_id, account_id);
 	}
 	int addGroup(std::string group_name, int group_rank){
 		if (group_name.length() > Group::MAX_NAME)
 			throw std::runtime_error(std::format("Group name length {} is over the limit of {}", group_name.length(), Group::MAX_NAME));
-		int new_group_id = fuze_dbi->query<int>("SELECT permission_group_id FROM _sequences");
-		fuze_dbi->query<void>("UPDATE _sequences SET permission_group_id = $1", new_group_id+1);
-		fuze_dbi->query<void>("INSERT INTO permission_group(id, name) VALUES ($1, $2)", new_group_id, group_name.c_str());
+		int new_group_id = db->query<int>("SELECT permission_group_id FROM _sequences");
+		db->query<void>("UPDATE _sequences SET permission_group_id = $1", new_group_id+1);
+		db->query<void>("INSERT INTO permission_group(id, name) VALUES ($1, $2)", new_group_id, group_name.c_str());
 		Group new_group(new_group_id, group_name);
 		this->groups.emplace(new_group_id, new_group);
 		// https://stackoverflow.com/a/6935419
@@ -337,7 +337,7 @@ public:
 			throw std::runtime_error("[addAccountToGroup] Attempted to add user to one or more groups to which no user can be added, namely, the \"USERS\" and \"PUBLIC\" groups.");
 		if (!this->groups.at(group_id).containsMember(account_id)) {
 			this->groups.at(group_id).addMember(account_id);
-			fuze_dbi->query<void>("INSERT INTO permission_group_account(permission_group_id, account_id) VALUES ($1, $2)", group_id, account_id);
+			db->query<void>("INSERT INTO permission_group_account(permission_group_id, account_id) VALUES ($1, $2)", group_id, account_id);
 		}
 	}
 	void setOrderedGroups(std::vector<int> ordered_groups) {
@@ -347,9 +347,9 @@ public:
 	int createAccount(const std::string& username, const char* password_hash_hash, const char* intermediate_salt_base64) {
 		if (this->accountExists(username))
 			throw std::runtime_error("An account with this username already exists");
-		int new_account_id = fuze_dbi->query<int>("SELECT account_id FROM _sequences");
-		fuze_dbi->query<void>("UPDATE _sequences SET account_id = $1", new_account_id+1);
-		fuze_dbi->query<void>("INSERT INTO account(id, username, password_hash_hash_base64, intermediate_salt_base64) VALUES ($1, $2, $3, $4)", new_account_id, username.c_str(), password_hash_hash, intermediate_salt_base64);
+		int new_account_id = db->query<int>("SELECT account_id FROM _sequences");
+		db->query<void>("UPDATE _sequences SET account_id = $1", new_account_id+1);
+		db->query<void>("INSERT INTO account(id, username, password_hash_hash_base64, intermediate_salt_base64) VALUES ($1, $2, $3, $4)", new_account_id, username.c_str(), password_hash_hash, intermediate_salt_base64);
 		this->accounts.emplace(new_account_id, Account{
 			.id = new_account_id,
 			.username = username
@@ -398,18 +398,18 @@ protected:
 	void cacheAllGroups() {
 		std::cout << "[PermissionManager] Retreiving groups from database... ";
 		// struct db_group_array* group_array = db_retrieve_groups();
-		for (auto group_tuple : fuze_dbi->queryRows<std::tuple<int, std::string>>("SELECT id, name FROM permission_group")) {
+		for (auto group_tuple : db->queryRows<std::tuple<int, std::string>>("SELECT id, name FROM permission_group")) {
 			Group group(std::get<0>(group_tuple), std::get<1>(group_tuple));
 			this->groups.emplace(std::get<0>(group_tuple), group);
 		}
 		std::cout << "added " << this->groups.size() << " groups";
 
-		for (auto group_id : fuze_dbi->queryRows<int>("SELECT permission_group_id FROM permission_group_heirarchy ORDER BY rank")) {
+		for (auto group_id : db->queryRows<int>("SELECT permission_group_id FROM permission_group_heirarchy ORDER BY rank")) {
 			this->ordered_groups.push_back(group_id);
 		}
 		std::cout << ", established heirarchy";
 
-		for (auto group_member : fuze_dbi->queryRows<std::tuple<int, int>>("SELECT permission_group_id, account_id FROM permission_group_account")) {
+		for (auto group_member : db->queryRows<std::tuple<int, int>>("SELECT permission_group_id, account_id FROM permission_group_account")) {
 			this->groups.at(std::get<0>(group_member)).addMember(std::get<1>(group_member));
 		}
 		std::cout << ", added users to groups." << std::endl;
@@ -445,7 +445,7 @@ protected:
 	}
 	void cacheAllAccounts()  {
 		std::cout << "[PermissionManager] Retreiving accounts from database... ";
-		for (auto user_t : fuze_dbi->queryRows<std::tuple<int, std::string>>("SELECT id, username FROM account")) {
+		for (auto user_t : db->queryRows<std::tuple<int, std::string>>("SELECT id, username FROM account")) {
 			std::cout << std::get<0>(user_t) << ", ";
 			this->accounts.emplace(std::get<0>(user_t), Account{
 				.id = std::get<0>(user_t),
@@ -467,9 +467,9 @@ private:
 	}
 	void saveGroupHeirarchy() const {
 		std::cout << "[PermissionManager] Saving new group heirarchy: ";
-		fuze_dbi->query<void>("DELETE FROM permission_group_heirarchy");
+		db->query<void>("DELETE FROM permission_group_heirarchy");
 		for (int rank = 0; rank < this->ordered_groups.size(); rank++) {
-			fuze_dbi->query<void>("INSERT INTO permission_group_heirarchy(rank, permission_group_id) VALUES ($1, $2)", rank, this->ordered_groups[rank]);
+			db->query<void>("INSERT INTO permission_group_heirarchy(rank, permission_group_id) VALUES ($1, $2)", rank, this->ordered_groups[rank]);
 			std::cout << rank << ": " << this->ordered_groups[rank] << ", ";
 		}
 		std::cout << "done." << std::endl;
@@ -483,12 +483,12 @@ private:
 class PermissionManagedObject : public PermissionObjectBase {
 public:
 	// Existing object
-	PermissionManagedObject(PermissionObjectBase* parent_object, int permission_object_id, FuzeDBI::Connection* fuze_dbi)
-			: PermissionObjectBase(permission_object_id, fuze_dbi), parent_object(parent_object) {
+	PermissionManagedObject(PermissionObjectBase* parent_object, int permission_object_id, FuzeDBI::Connection* db)
+			: PermissionObjectBase(permission_object_id, db), parent_object(parent_object) {
 	}
 	// New object
-	PermissionManagedObject(PermissionObjectBase* parent_object, FuzeDBI::Connection* fuze_dbi)
-			: PermissionObjectBase(fuze_dbi), parent_object(parent_object) {
+	PermissionManagedObject(PermissionObjectBase* parent_object, FuzeDBI::Connection* db)
+			: PermissionObjectBase(db), parent_object(parent_object) {
 	}
 	bool isOwnedBy(const Client& client) const;
 	const std::vector<int>* getOrderedGroups() const override {

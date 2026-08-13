@@ -32,7 +32,7 @@ if(FUZEDBI_USE_POSTGRES)
 
   target_compile_definitions(FuzeHttp PUBLIC FUZEDBI_POSTGRES)
   target_compile_definitions(FuzeHttp PUBLIC FUZEDBI_DB="postgresql")
-  target_link_libraries(FuzeHttp PRIVATE PostgreSQL::PostgreSQL)
+  target_link_libraries(FuzeHttp PUBLIC PostgreSQL::PostgreSQL)
 else()
   message("FuzeDBI will use SQLite interface")
 
@@ -43,12 +43,13 @@ else()
 
   target_compile_definitions(FuzeHttp PUBLIC FUZEDBI_SQLITE)
   target_compile_definitions(FuzeHttp PUBLIC FUZEDBI_DB="sqlite")
-  target_link_libraries(FuzeHttp PRIVATE SQLite3::SQLite3)
+  target_link_libraries(FuzeHttp PUBLIC SQLite3::SQLite3)
 endif()
 target_link_libraries(FuzeHttp
   PRIVATE
     Boost::json
     Boost::program_options
+  PUBLIC
     sodium
 )
 # install(

@@ -11,11 +11,10 @@ target_sources(example
     main.cpp
     shared_state.cpp
     urls.cpp
-    views.cpp
-    views_registration.cpp
-  # PUBLIC FILE_SET CXX_MODULES
-  # FILES
-  #   migrations.cppm
+  PUBLIC FILE_SET CXX_MODULES
+  FILES
+    views.cppm
+    views_registration.cppm
 )
 set(PROJECT_FOLDER "FuzeHttp_Example")
 target_compile_definitions(example PUBLIC PROJECT_FOLDER="${PROJECT_FOLDER}")

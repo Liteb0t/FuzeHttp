@@ -45,9 +45,6 @@ public:
 };
 // std::list<std::unique_ptr<Migration>> migrations;
 void makeNewMigrations(FuzeDBI::Connection* fuze_dbi, const std::string& database_version_string, const std::string& server_version, const std::list<std::unique_ptr<Migration>>&& migrations) {
-	println("Database version: \t{}", database_version_string);
-	println("Server version:   \t{}", server_version);
-
 	int migrations_needed = 0; // 0=no, 1=yes (prompt), 2=yes (user accepted prompt)
 	for (const std::unique_ptr<Migration>& migration : migrations) {
 		if (migration->version_string > server_version) {

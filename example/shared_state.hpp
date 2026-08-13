@@ -31,9 +31,9 @@ struct StateConfig {
 };
 
 // Represents the shared server state
-class shared_state : public FuzeHttp::State {
+class shared_state : public FuzeHttp::StateBase {
 public:
-	shared_state(FuzeDBI::Connection* db) : State(db) {}
+	shared_state(FuzeDBI::Connection* db) : StateBase(db) {}
 	// shared_state(StateConfig config) : Stateconfig(config) {}
 	// shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location_relative, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates);
 	StateConfig config;

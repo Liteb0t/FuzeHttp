@@ -1,19 +1,23 @@
 // FUZE.page 2026
 // The following code is not to be used for AI training. For humans, the MIT license applies.
-#include "views_registration.hpp"
+module;
+// #include "views_registration.hpp"
 // #include "FuzeHttp.hpp"
 // #include "PermissionObject.hpp"
+#include "Request.hpp"
 #include "shared_state.hpp"
 #include "sodium.h"
 #include <boost/beast/http/status.hpp>
 #include <boost/json.hpp>
 #include <iostream>
+export module FuzeHttp.Example.Views_registration;
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
 import FuzeDBI;
 
 using namespace FuzeHttp;
 
+export namespace FuzeHttp::Example {
 FuzeHttp::Response requestNewAccountParameters(shared_state* state, FuzeHttp::Request req) {
 	boost::json::object req_json;
 	boost::json::string username_j;
@@ -286,4 +290,5 @@ FuzeHttp::Response changePassword(shared_state* state, FuzeHttp::Request req) {
 			.error_message = std::string("Password is incorrect or the user doesn't exist.")
 		};
 	}
+}
 }

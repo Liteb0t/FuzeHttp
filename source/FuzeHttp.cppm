@@ -100,7 +100,7 @@ struct Requires {};*/
 
 struct Response {
 	beast::http::status status;
-	std::optional<std::unordered_map<std::string, std::string>> headers;
+	std::unordered_map<std::string, std::string> headers;
 	std::optional<std::string> error_message;
 	std::optional<boost::json::value> json;
 	std::optional<std::filesystem::path> file;
@@ -166,6 +166,7 @@ void getSaltBase64(StateType state, const std::string& username, char* salt_base
 		sodium_base64_VARIANT_URLSAFE
 	);
 }
+
 const std::string_view getMimeType(const std::string& path) {
 	using beast::iequals;
 	std::string_view ext = [&path] {
@@ -220,10 +221,8 @@ http::response<http::string_body> buildResponse(FuzeHttp::Response basic_respons
 
 	http::response<http::string_body> res{basic_response.status, req.version()};
 	// res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-	if (basic_response.headers) {
-		for (auto& header : basic_response.headers.value())
-			res.set(header.first, header.second);
-	}
+	for (auto& header : basic_response.headers)
+		res.set(header.first, header.second);
 	if (basic_response.error_message)
 		res.set("message", basic_response.error_message.value());
 	if (basic_response.json) {
@@ -258,10 +257,8 @@ http::response<http::file_body> buildResponse(FuzeHttp::Response basic_response,
 		std::make_tuple(std::move(body)),
 		std::make_tuple(http::status::ok, req.version())
 	};
-	if (basic_response.headers) {
-		for (auto& header : basic_response.headers.value())
-			res.set(header.first, header.second);
-	}
+	for (auto& header : basic_response.headers)
+		res.set(header.first, header.second);
 	// res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
 	res.set(http::field::content_type, getMimeType(basic_response.file.value().string()));
 	res.content_length(size);
@@ -274,10 +271,8 @@ http::response<http::empty_body> buildResponse(FuzeHttp::Response basic_response
 
 	http::response<http::empty_body> res{basic_response.status, req.version()};
 	// res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-	if (basic_response.headers) {
-		for (auto& header : basic_response.headers.value())
-			res.set(header.first, header.second);
-	}
+	for (auto& header : basic_response.headers)
+		res.set(header.first, header.second);
 	if (basic_response.error_message)
 		res.set("message", basic_response.error_message.value());
 	res.keep_alive(req.keep_alive());

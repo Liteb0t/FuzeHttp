@@ -234,20 +234,21 @@ public:
 		else
 			program_directories = program_directories_opt.value();
 		std::println("Data:\t {}", program_directories.data.string());
-	#ifdef FUZEDBI_SQLITE
+#ifdef FUZEDBI_SQLITE
 		std::println("SQLite:\t {}", program_directories.sqlite_file.string());
-	#endif
+#endif
 		std::println("Media:\t {}", program_directories.media.string());
 
 		std::println("FuzeDBI interface: {}", FUZEDBI_DB);
 		// FuzeDBI::Connection* fuze_database_interface;
 		try {
-	#ifdef FUZEDBI_POSTGRES
+#ifdef FUZEDBI_POSTGRES
 			this->db = new FuzeDBI::Connection(postgresql_user, postgresql_host, postgresql_port, postgresql_database_name);
-	#elifdef FUZEDBI_SQLITE
+#elifdef FUZEDBI_SQLITE
 			print("sqlite_database_file: {}", program_directories.sqlite_file.string());
 
 			this->db = new FuzeDBI::Connection(program_directories.sqlite_file.string());
+#endif
 			try {
 				database_version = this->db->query<std::optional<std::string>>("SELECT version FROM _info");
 			}
@@ -260,7 +261,6 @@ public:
 				// 	throw std::runtime_error(std::format("Database template file {} not found.", template_path.string()));
 				Migrations::firstTimeSetup(this->db, program_directories.data / "database_template.sql", program_directories.sqlite_file.string(), current_version);
 			}
-	#endif
 		}
 		catch (const std::exception& exception) {
 			std::println(std::cerr, "{}", exception.what());
@@ -348,9 +348,6 @@ public:
 
 			// json_as_str = writeManifestJson(manifest_file, manifest_frontend_etags);
 
-			std::print("manifest_frontend_etags: ");
-			for (const auto& target : manifest_frontend_etags)
-				std::println("{} :: {}", target.first, target.second);
 
 			if (!old_combined_hash || (old_combined_hash.value() != new_combined_hash))
 				FuzeHttp::applyOptionsToTemplates(additional_options, document_root, manifest_frontend_etags);
@@ -375,9 +372,6 @@ public:
 		}
 		for (const auto& target : manifest_frontend_etags)
 			busted_target_to_target.emplace(FuzeHttp::insertExtensionToFileName(target.first, target.second), target.first);
-		std::println("Busted target to target:");
-		for (const auto& target : busted_target_to_target)
-			std::println("{} :: {}", target.first, target.second);
 		for (const std::string& target : files_generated_from_templates)
 			std::println("Target to file generated from template: {}", target);
 
@@ -392,11 +386,18 @@ public:
 		state->document_root = document_root;
 		state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
 		state->media_location = program_directories.media;
-		state->manifest_frontend_etags = std::move(manifest_frontend_etags);
 		state->busted_target_to_target = std::move(busted_target_to_target);
+		std::println("Busted target to target:");
+		for (const auto& target :state-> busted_target_to_target)
+			std::println("{} :: {}", target.first, target.second);
+		state->manifest_frontend_etags = std::move(manifest_frontend_etags);
+		std::print("manifest_frontend_etags: ");
+		for (const auto& target : state->manifest_frontend_etags)
+			std::println("{} :: {}", target.first, target.second);
 		state->files_generated_from_templates = std::move(files_generated_from_templates);
 		state->frontend_etag = frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
 		// this->state = std::move(state);
+		std::println("frondend_etag: {}", state->frontend_etag);
 		state->parser_body_size_limit_mb = parser_body_size_limit_mb;
 		return -1;
 	}
@@ -404,11 +405,15 @@ public:
 	void run() {
 		state->start();
 		auto migrations = state->addMigrations();
+		std::println("Server version:   \t{}", this->current_version);
 		if (database_version) {
+			std::println("Database version: \t{}", database_version.value());
 			// std::println("Database version: {}", database_version.value());
 			// Migrations::makeMigrations(this->db, database_version.value(), current_version);
 			Migrations::makeNewMigrations(this->db, database_version.value(), current_version, std::move(migrations));
 		}
+		else
+			std::println("Database version: \tNot applicable (database newly created)");
 
 		auto address = boost::asio::ip::make_address("127.0.0.1");
 		// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
@@ -472,7 +477,7 @@ public:
 	std::optional<std::string> database_version;
 	const std::string current_version;
 private:
-	// FuzeHttp::State* state;
+	// FuzeHttp::StateBase* state;
 	const unsigned short threads = 1;
 };
 } // namespace FuzeHttp
