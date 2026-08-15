@@ -30,8 +30,14 @@ struct StateConfig {
 	std::string server_name;
 };
 enum struct PERMISSION : int {
-	MANAGE_PERMISSIONS
-}
+	MANAGE_PERMISSIONS,
+	VIEW_THREAD,
+	CREATE_THREAD,
+	SEND_MESSAGE,
+	DELETE_POST,
+	UPLOAD_FILE,
+	NUMBER_OF_PERMISSIONS
+};
 
 // Represents the shared server state
 class shared_state : public FuzeHttp::StateBase {

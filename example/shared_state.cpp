@@ -75,7 +75,7 @@ std::string shared_state::dumpAllGroups(const std::optional<Client>& client) con
 	boost::json::object groups_json;
 	boost::json::array group_heirarchy_json;
 	int group_editable_threshold;
-	if (this->clientHasPermission(client, PERMISSION::MANAGE_PERMISSIONS))
+	if (this->clientHasPermission(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS)))
 		group_editable_threshold = this->getClientRank(client) + 1;
 	else
 		group_editable_threshold = this->getOrderedGroups()->size();
@@ -103,7 +103,7 @@ std::string shared_state::dumpAllGroups(const std::optional<Client>& client) con
 std::string shared_state::dumpAllUsers(const std::optional<Client>& client) const {
 	boost::json::object users_json;
 	int client_rank = this->getClientRank(client);
-	bool client_has_manage_permissions_permission = this->clientHasPermission(client, PERMISSION::MANAGE_PERMISSIONS);
+	bool client_has_manage_permissions_permission = this->clientHasPermission(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS));
 	for (auto& account : this->accounts) {
 		int account_id = account.first;
 		std::cout << account_id << ", ";

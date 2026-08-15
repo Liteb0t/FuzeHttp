@@ -233,7 +233,7 @@ FuzeHttp::Response updateServerGroupPermissions(shared_state* state, FuzeHttp::R
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Invalid permission setting in JSON"};
 	if (!state->clientHasPermissionForGroup(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), group_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to update permissions for this group."};
-	state->setGroupPermission(group_id, static_cast<PERMISSION>(permission_number), static_cast<THREE_STATE_SETTING>(permission_setting));
+	state->setGroupPermission(group_id, permission_number, static_cast<THREE_STATE_SETTING>(permission_setting));
 	return FuzeHttp::Response{
 		.status = http::status::created
 	};
@@ -258,7 +258,7 @@ FuzeHttp::Response updateServerUserPermissions(shared_state* state, FuzeHttp::Re
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Invalid permission setting in JSON"};
 	if (!state->clientHasPermissionForAccount(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), account_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to update permissions for this account."};
-	state->setAccountPermission(account_id, static_cast<PERMISSION>(permission_number), static_cast<THREE_STATE_SETTING>(permission_setting));
+	state->setAccountPermission(account_id, permission_number, static_cast<THREE_STATE_SETTING>(permission_setting));
 	return FuzeHttp::Response{
 		.status = http::status::created
 	};
