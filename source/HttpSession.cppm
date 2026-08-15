@@ -153,7 +153,7 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 			// 	basic_res.file = basic_res.file.value() / "index.html";
 			std::println("Checking if file exists: {}", basic_res.file.value().string());
 			if (!std::filesystem::exists(basic_res.file.value()))
-				return FuzeHttp::buildResponse<http::empty_body>(FuzeHttp::Response{.status=http::status::bad_request, .error_message="File not found"}, req);
+				return FuzeHttp::buildResponse<http::empty_body>(FuzeHttp::Response{.status=http::status::bad_request, .error_message=std::format("File not found from target `{}`", std::string(req.target()))}, req);
 			else
 				return FuzeHttp::buildResponse<http::file_body>(basic_res, req);
 		}

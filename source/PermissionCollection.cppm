@@ -18,7 +18,7 @@ public:
 			group_id(group_id),
 			account_or_group(account_id ? ACCOUNT_OR_GROUP::ACCOUNT : ACCOUNT_OR_GROUP::GROUP) {
 	}
-	bool passPermission(PERMISSION permission_type, bool inherited_permission) const {
+	bool passPermission(int permission_type, bool inherited_permission) const {
 		auto permission_iterator = permission_map.find(permission_type);
 		if (permission_iterator != permission_map.end()) {
 			return permission_iterator->second.getBool(inherited_permission);
@@ -26,12 +26,12 @@ public:
 		else
 			return inherited_permission;
 	}
-	void addPermissionSetting(int permission_setting_id, PERMISSION permission_type, THREE_STATE_SETTING setting) {
+	void addPermissionSetting(int permission_setting_id, int permission_type, THREE_STATE_SETTING setting) {
 		PermissionSetting permission_setting(permission_setting_id, setting);
 		this->permission_map.emplace(permission_type, std::move(permission_setting));
 	}
-	void setPermission(PERMISSION permission_type, THREE_STATE_SETTING setting, FuzeDBI::Connection* fuze_dbi) {
-		std::unordered_map<PERMISSION, PermissionSetting>::iterator it = this->permission_map.find(permission_type);
+	void setPermission(int permission_type, THREE_STATE_SETTING setting, FuzeDBI::Connection* fuze_dbi) {
+		std::unordered_map<int, PermissionSetting>::iterator it = this->permission_map.find(permission_type);
 		if (setting == THREE_STATE_SETTING::INHERIT) {
 			if (it != this->permission_map.end()) {
 				fuze_dbi->query<void>("DELETE FROM permission_setting WHERE id = $1", it->second.getId());
@@ -57,7 +57,7 @@ public:
 		db_delete_permission_setting(this->id, static_cast<int>(permission_type));
 		this->permission_map.erase(it);
 	}*/
-	const std::unordered_map<PERMISSION, PermissionSetting>* getPermissionMap() const {
+	const std::unordered_map<int, PermissionSetting>* getPermissionMap() const {
 		return &(this->permission_map);
 	}
 	const ACCOUNT_OR_GROUP getAccountOrGroupEnumValue() const { return this->account_or_group; }
@@ -68,6 +68,6 @@ private:
 	const ACCOUNT_OR_GROUP account_or_group;
 	const std::optional<int> account_id;
 	const std::optional<int> group_id;
-	std::unordered_map<PERMISSION, PermissionSetting> permission_map;
+	std::unordered_map<int /*PERMISSION*/, PermissionSetting> permission_map;
 };
 } // namespace FuzeHttp

@@ -56,7 +56,7 @@ public:
 
 			for (auto permission_setting_tuple : db->queryRows<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
 				std::cout << std::get<0>(permission_setting_tuple) << ", ";
-				permission_collection.addPermissionSetting(std::get<0>(permission_setting_tuple), static_cast<PERMISSION>(std::get<1>(permission_setting_tuple)), static_cast<THREE_STATE_SETTING>(std::get<2>(permission_setting_tuple)));
+				permission_collection.addPermissionSetting(std::get<0>(permission_setting_tuple), std::get<1>(permission_setting_tuple), static_cast<THREE_STATE_SETTING>(std::get<2>(permission_setting_tuple)));
 			}
 			if (permission_collection.getAccountOrGroupEnumValue() == ACCOUNT_OR_GROUP::ACCOUNT)
 				this->account_permissions.emplace(account_id.value(), permission_collection);
@@ -98,17 +98,17 @@ public:
 		db->query<void>("DELETE FROM permission_collection WHERE account_id = $1", account_id);
 		this->account_permissions.erase(account_id);
 	}
-	void setGroupPermission(int group_id, PERMISSION permission_type, THREE_STATE_SETTING setting) {
+	void setGroupPermission(int group_id, int permission_type, THREE_STATE_SETTING setting) {
 		if (!this->group_permissions.contains(group_id))
 			this->addGroupPermissionCollection(group_id);
 		this->group_permissions.at(group_id).setPermission(permission_type, setting, db);
 	}
-	void setAccountPermission(int user_id, PERMISSION permission_type, THREE_STATE_SETTING setting) {
+	void setAccountPermission(int user_id, int permission_type, THREE_STATE_SETTING setting) {
 		if (auto it = this->account_permissions.find(user_id); it == this->account_permissions.end())
 			this->addAccountPermissionCollection(user_id);
 		this->account_permissions.at(user_id).setPermission(permission_type, setting, db);
 	}
-	bool passPermissionForGroup(bool inherited_permission, PERMISSION permission, int group_id) const {
+	bool passPermissionForGroup(bool inherited_permission, int permission, int group_id) const {
 		inherited_permission = this->passInheritedPermissionForGroup(inherited_permission, permission, group_id);
 		// Check if a group permission is set for this object
 		std::unordered_map<int, PermissionCollection>::const_iterator group_iterator = this->group_permissions.find(group_id);
@@ -116,7 +116,7 @@ public:
 			inherited_permission = group_iterator->second.passPermission(permission, inherited_permission);
 		return inherited_permission;
 	}
-	bool passPermissionForAccount(bool inherited_permission, PERMISSION permission, int account_id) const {
+	bool passPermissionForAccount(bool inherited_permission, int permission, int account_id) const {
 		inherited_permission = this->passInheritedPermissionForAccount(inherited_permission, permission, account_id);
 		if (auto it = this->account_permissions.find(account_id); it != this->account_permissions.end()) // Check if a client permission is set for this object
 			inherited_permission = it->second.passPermission(permission, inherited_permission);
@@ -124,13 +124,13 @@ public:
 	}
 	virtual const std::vector<int>* getOrderedGroups() const = 0;
 	virtual std::vector<int> getOrderedGroupsContainingMember(int user_id) const = 0;
-	virtual bool passInheritedPermissionForGroup(bool inherited_permission, PERMISSION permission, int group_id) const = 0;
-	virtual bool passInheritedPermissionForAccount(bool inherited_permission, PERMISSION permission, int account_id) const = 0;
+	virtual bool passInheritedPermissionForGroup(bool inherited_permission, int permission, int group_id) const = 0;
+	virtual bool passInheritedPermissionForAccount(bool inherited_permission, int permission, int account_id) const = 0;
 	virtual int getClientRank(const std::optional<Client>& client) const = 0;
 	virtual int getGroupRank(int group_id) const = 0;
 	virtual int getAccountRank(int account_id) const = 0;
 	virtual const std::unordered_map<int, Account>& getAccounts() const = 0;
-	bool clientHasPermission(const std::optional<Client>& client, PERMISSION permission) const {
+	bool clientHasPermission(const std::optional<Client>& client, int permission) const {
 		bool inherited_permission = false;
 		// PUBLIC and USERS are built-in, that is, they are never placed in an account's group list. This is because every account is implicitly a part of these two groups
 		inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::PUBLIC));
@@ -145,12 +145,12 @@ public:
 		}
 		return inherited_permission;
 	}
-	bool clientHasPermissionForGroup(const std::optional<Client>& client, PERMISSION permission, int group_id) const {
+	bool clientHasPermissionForGroup(const std::optional<Client>& client, int permission, int group_id) const {
 		if (!this->clientHasPermission(client, permission))
 			return false;
 		return this->getClientRank(client) < this->getGroupRank(group_id);
 	}
-	bool clientHasPermissionForAccount(const std::optional<Client>& client, PERMISSION permission, int account_id) const {
+	bool clientHasPermissionForAccount(const std::optional<Client>& client, int permission, int account_id) const {
 		if (!this->clientHasPermission(client, permission))
 			return false;
 		return this->getClientRank(client) < this->getAccountRank(account_id);
@@ -167,9 +167,9 @@ public:
 			int group_id = (*(this->getOrderedGroups()))[i];
 			std::unordered_map<int, PermissionCollection>::const_iterator group_permission_collection_it = this->group_permissions.find(group_id);
 			if (group_permission_collection_it != this->group_permissions.end()) {
-				const std::unordered_map<PERMISSION, PermissionSetting>* permission_settings = group_permission_collection_it->second.getPermissionMap();
+				const std::unordered_map<int, PermissionSetting>* permission_settings = group_permission_collection_it->second.getPermissionMap();
 				boost::json::object permission_collection_json;
-				for (std::unordered_map<PERMISSION, PermissionSetting>::const_iterator permission_it = permission_settings->begin(); permission_it != permission_settings->end(); permission_it++) {
+				for (std::unordered_map<int, PermissionSetting>::const_iterator permission_it = permission_settings->begin(); permission_it != permission_settings->end(); permission_it++) {
 					permission_collection_json[std::to_string(static_cast<int>(permission_it->first))] = static_cast<int>(permission_it->second.get());
 				}
 				// bool group_permission_is_client_editable;
@@ -193,9 +193,9 @@ public:
 			std::cout << account_id << ", ";
 			std::unordered_map<int, PermissionCollection>::const_iterator user_permission_collection_it = this->account_permissions.find(account_id);
 			if (user_permission_collection_it != this->account_permissions.end()) {
-				const std::unordered_map<PERMISSION, PermissionSetting>* permission_settings = user_permission_collection_it->second.getPermissionMap();
+				const std::unordered_map<int, PermissionSetting>* permission_settings = user_permission_collection_it->second.getPermissionMap();
 				boost::json::object permission_collection_json;
-				for (std::unordered_map<PERMISSION, PermissionSetting>::const_iterator permission_it = permission_settings->begin(); permission_it != permission_settings->end(); permission_it++) {
+				for (std::unordered_map<int, PermissionSetting>::const_iterator permission_it = permission_settings->begin(); permission_it != permission_settings->end(); permission_it++) {
 					permission_collection_json[std::to_string(static_cast<int>(permission_it->first))] = static_cast<int>(permission_it->second.get());
 				}
 				user_permissions_json.emplace(std::to_string(account_id), boost::json::value{{"permission_collection", permission_collection_json}});
@@ -223,7 +223,7 @@ public:
 			: PermissionObjectBase(0, db) {
 		this->cacheAllGroups();
 		this->cacheAllAccounts();
-		this->grantOwnerPrivileges();
+		// this->grantOwnerPrivileges();
 	}
 	const std::vector<int>* getOrderedGroups() const override {
 		return &(this->ordered_groups);
@@ -371,8 +371,8 @@ public:
 			return true;
 	}
 	// PermissionManager is the highest level, so there is no parent to inherit from
-	bool passInheritedPermissionForGroup(bool inherited_permission, PERMISSION permission, int group_id) const override { return inherited_permission; }
-	bool passInheritedPermissionForAccount( bool inherited_permission, PERMISSION permission, int account_id ) const override { return inherited_permission; }
+	bool passInheritedPermissionForGroup(bool inherited_permission, int permission, int group_id) const override { return inherited_permission; }
+	bool passInheritedPermissionForAccount( bool inherited_permission, int permission, int account_id ) const override { return inherited_permission; }
 	const std::optional<int> owner_id;
 protected:
 	const Group* getGroup(int group_id) const {
@@ -455,16 +455,16 @@ protected:
 		}
 		std::cout << "done." << std::endl;
 	}
+	void grantOwnerPrivileges(int number_of_permissions)  {
+		std::cout << "[PermissionManager] grantOwnerPrivileges()" << std::endl;
+		for (int permission_number = 0; permission_number < number_of_permissions; permission_number++) {
+			if (!this->passPermissionForGroup(false, permission_number, static_cast<int>(BUILTIN_GROUPS::OWNER)))
+				this->setGroupPermission(static_cast<int>(BUILTIN_GROUPS::OWNER), permission_number, THREE_STATE_SETTING::ALLOW);
+		}
+	}
 
 	std::unordered_map<int, Account> accounts;
 private:
-	void grantOwnerPrivileges()  {
-		std::cout << "[PermissionManager] grantOwnerPrivileges()" << std::endl;
-		for (int permission_number = 0; permission_number < static_cast<int>(PERMISSION::NUMBER_OF_PERMISSIONS); permission_number++) {
-			if (!this->passPermissionForGroup(false, static_cast<PERMISSION>(permission_number), static_cast<int>(BUILTIN_GROUPS::OWNER)))
-				this->setGroupPermission(static_cast<int>(BUILTIN_GROUPS::OWNER), static_cast<PERMISSION>(permission_number), THREE_STATE_SETTING::ALLOW);
-		}
-	}
 	void saveGroupHeirarchy() const {
 		std::cout << "[PermissionManager] Saving new group heirarchy: ";
 		db->query<void>("DELETE FROM permission_group_heirarchy");
@@ -509,10 +509,10 @@ public:
 	const std::unordered_map<int, Account>& getAccounts() const override {
 		return this->parent_object->getAccounts();
 	}
-	bool passInheritedPermissionForGroup(bool inherited_permission, PERMISSION permission, int group_id) const override {
+	bool passInheritedPermissionForGroup(bool inherited_permission, int permission, int group_id) const override {
 		return this->parent_object->passPermissionForGroup(inherited_permission, permission, group_id);
 	}
-	bool passInheritedPermissionForAccount(bool inherited_permission, PERMISSION permission, int account_id) const override {
+	bool passInheritedPermissionForAccount(bool inherited_permission, int permission, int account_id) const override {
 		return this->parent_object->passPermissionForAccount(inherited_permission, permission, account_id);
 	}
 private:

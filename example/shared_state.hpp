@@ -29,6 +29,9 @@ class WebsocketSession;
 struct StateConfig {
 	std::string server_name;
 };
+enum struct PERMISSION : int {
+	MANAGE_PERMISSIONS
+}
 
 // Represents the shared server state
 class shared_state : public FuzeHttp::StateBase {

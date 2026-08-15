@@ -33,7 +33,7 @@ FuzeHttp::Response createGroup(shared_state* state, FuzeHttp::Request req) {
 	std::optional<Client> client = state->getClientIfExists(req);
 	std::print("Client rank: {}", state->getClientRank(client));
 	std::print("Ordered_groups: {}", state->getOrderedGroups()->size());
-	if (!state->clientHasPermission(client, PERMISSION::MANAGE_PERMISSIONS))
+	if (!state->clientHasPermission(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS)))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "Client lacks permission MANAGE_PERMISSIONS"};
 	else if (state->getClientRank(client) >= state->getOrderedGroups()->size() - 2)
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "Only users within a group with rank above \"Account\" can create groups"};
@@ -58,7 +58,7 @@ FuzeHttp::Response deleteGroup(shared_state* state, FuzeHttp::Request req, int g
 	std::optional<Client> client = state->getClientIfExists(req);
 	if (!state->groupExists(group_id))
 		return FuzeHttp::Response{.status = http::status::not_found, .error_message = "Group does not exist."};
-	if (!state->clientHasPermissionForGroup(client, PERMISSION::MANAGE_PERMISSIONS, group_id))
+	if (!state->clientHasPermissionForGroup(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), group_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to delete this group."};
 	state->eraseGroup(group_id);
 	return FuzeHttp::Response{
@@ -70,11 +70,11 @@ FuzeHttp::Response removeMemberFromGroup(shared_state* state, FuzeHttp::Request 
 	std::optional<Client> client = state->getClientIfExists(req);
 	if (!state->groupExists(group_id))
 		return FuzeHttp::Response{.status = http::status::not_found, .error_message = "Group does not exist."};
-	if (!state->clientHasPermissionForGroup(client, PERMISSION::MANAGE_PERMISSIONS, group_id))
+	if (!state->clientHasPermissionForGroup(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), group_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to delete this group."};
 	if (!state->accountExists(account_id))
 		return FuzeHttp::Response{.status = http::status::not_found, .error_message = std::format("Account {} not found.", account_id)};
-	if (!state->clientHasPermissionForAccount(client, PERMISSION::MANAGE_PERMISSIONS, account_id))
+	if (!state->clientHasPermissionForAccount(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), account_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to remove this account from a group."};
 	state->removeUserFromGroup(account_id, group_id);
 	return FuzeHttp::Response{
@@ -113,7 +113,7 @@ FuzeHttp::Response setGroupHeirarchy(shared_state* state, FuzeHttp::Request req)
 		std::cerr << "JSON error " << e.what() << std::endl;
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = std::format("[setGroupHeirarchy] {}", e.what())};
 	}
-	if (!state->clientHasPermission(client, PERMISSION::MANAGE_PERMISSIONS))
+	if (!state->clientHasPermission(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS)))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "Client lacks permission MANAGE_PERMISSIONS"};
 	if (new_group_heirarchy.size() != state->getOrderedGroups()->size())
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "[setGroupHeirarchy] Number of groups does not match"};
@@ -166,7 +166,7 @@ FuzeHttp::Response addGroupsToUser(shared_state* state, FuzeHttp::Request req, i
 		std::cerr << "JSON error " << e.what() << std::endl;
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = std::format("[createMessage] {}", e.what())};
 	}
-	if (!state->clientHasPermission(client, PERMISSION::MANAGE_PERMISSIONS))
+	if (!state->clientHasPermission(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS)))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "Cannot change group heirarchy; permission denied."};
 	if (!state->accountExists(account_id))
 		return FuzeHttp::Response{.status = http::status::not_found, .error_message = std::format("Account {} not found.", account_id)};
@@ -192,7 +192,7 @@ FuzeHttp::Response getServerPermissions(shared_state* state, FuzeHttp::Request r
 
 FuzeHttp::Response addServerGroupPermission(shared_state* state, FuzeHttp::Request req, int group_id) {
 	std::optional<Client> client = state->getClientIfExists(req);
-	if (!state->clientHasPermissionForGroup(client, PERMISSION::MANAGE_PERMISSIONS, group_id))
+	if (!state->clientHasPermissionForGroup(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), group_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to manage permissions."};
 	else if (state->permissionCollectionExistsForGroup(group_id))
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Permissions for this group are already set. Use PUT request instead."};
@@ -204,7 +204,7 @@ FuzeHttp::Response addServerGroupPermission(shared_state* state, FuzeHttp::Reque
 
 FuzeHttp::Response addServerUserPermission(shared_state* state, FuzeHttp::Request req, int account_id) {
 	std::optional<Client> client = state->getClientIfExists(req);
-	if (!state->clientHasPermissionForAccount(client, PERMISSION::MANAGE_PERMISSIONS, account_id))
+	if (!state->clientHasPermissionForAccount(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), account_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to manage permissions."};
 	else if (state->permissionCollectionExistsForAccount(account_id))
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Permissions for this account are already set. Use PUT request instead."};
@@ -231,7 +231,7 @@ FuzeHttp::Response updateServerGroupPermissions(shared_state* state, FuzeHttp::R
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Invalid permission number in JSON"};
 	if (permission_setting < 0 || permission_setting >= 3)
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Invalid permission setting in JSON"};
-	if (!state->clientHasPermissionForGroup(client, PERMISSION::MANAGE_PERMISSIONS, group_id))
+	if (!state->clientHasPermissionForGroup(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), group_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to update permissions for this group."};
 	state->setGroupPermission(group_id, static_cast<PERMISSION>(permission_number), static_cast<THREE_STATE_SETTING>(permission_setting));
 	return FuzeHttp::Response{
@@ -256,7 +256,7 @@ FuzeHttp::Response updateServerUserPermissions(shared_state* state, FuzeHttp::Re
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Invalid permission number in JSON"};
 	if (permission_setting < 0 || permission_setting >= 3)
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "Invalid permission setting in JSON"};
-	if (!state->clientHasPermissionForAccount(client, PERMISSION::MANAGE_PERMISSIONS, account_id))
+	if (!state->clientHasPermissionForAccount(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), account_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to update permissions for this account."};
 	state->setAccountPermission(account_id, static_cast<PERMISSION>(permission_number), static_cast<THREE_STATE_SETTING>(permission_setting));
 	return FuzeHttp::Response{
@@ -268,7 +268,7 @@ FuzeHttp::Response deleteServerGroupPermission(shared_state* state, FuzeHttp::Re
 	std::optional<Client> client = state->getClientIfExists(req);
 	if (!state->permissionCollectionExistsForGroup(group_id))
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "This group does not exist."};
-	if (!state->clientHasPermissionForGroup(client, PERMISSION::MANAGE_PERMISSIONS, group_id))
+	if (!state->clientHasPermissionForGroup(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), group_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to delete this group."};
 	state->removeGroupPermissionCollection(group_id);
 	return FuzeHttp::Response{
@@ -280,7 +280,7 @@ FuzeHttp::Response deleteServerUserPermission(shared_state* state, FuzeHttp::Req
 	std::optional<Client> client = state->getClientIfExists(req);
 	if (!state->permissionCollectionExistsForAccount(account_id))
 		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = "This account does not exist."};
-	if (!state->clientHasPermissionForAccount(client, PERMISSION::MANAGE_PERMISSIONS, account_id))
+	if (!state->clientHasPermissionForAccount(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS), account_id))
 		return FuzeHttp::Response{.status = http::status::forbidden, .error_message = "You lack permission to delete this account."};
 	state->removeAccountPermissionCollection(account_id);
 	return FuzeHttp::Response{
@@ -299,9 +299,9 @@ FuzeHttp::Response client(shared_state* state, FuzeHttp::Request req) {
 		.status = http::status::ok,
 		.json = {{
 			{"server_permissions", {
-				{"manage_permissions", state->clientHasPermission(client, PERMISSION::MANAGE_PERMISSIONS)},
-				{"create_thread", state->clientHasPermission(client, PERMISSION::CREATE_THREAD)},
-				{"upload_file", state->clientHasPermission(client, PERMISSION::UPLOAD_FILE)}
+				{"manage_permissions", state->clientHasPermission(client, static_cast<int>(PERMISSION::MANAGE_PERMISSIONS))},
+				{"create_thread", state->clientHasPermission(client, static_cast<int>(PERMISSION::CREATE_THREAD))},
+				{"upload_file", state->clientHasPermission(client, static_cast<int>(PERMISSION::UPLOAD_FILE))}
 			}},
 			{"has_cookie", req.find("Cookie") != req.end()}
 		}}

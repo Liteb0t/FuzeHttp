@@ -3,22 +3,6 @@ module;
 export module FuzeHttp.PermissionSetting;
 
 export namespace FuzeHttp {
-// Caution: only insert values just before NUMBER_OF_PERMISSIONS; otherwise existing database entries will be messed up
-enum struct PERMISSION {  // Mirrors PermissionCollection.permissions in _permissions.js
-	MANAGE_PERMISSIONS,
-	VIEW_THREAD,
-	CREATE_THREAD,
-	SEND_MESSAGE,
-	DELETE_POST,
-	UPLOAD_FILE,
-	// AUTHOR_DELETE_THREAD,
-	// NON_AUTHOR_DELETE_THREAD,
-	// NON_AUTHOR_VIEW_MESSAGE,
-	// NON_AUTHOR_VIEW_THREAD,
-	// NON_AUTHOR_DELETE_FILE,
-	NUMBER_OF_PERMISSIONS
-};
-
 enum struct THREE_STATE_SETTING { DENY = 0, INHERIT = 1, ALLOW = 2 };
 
 // A seperate PermissionSetting class is used for futureproofing; 
