@@ -143,6 +143,7 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 		http::request<http::string_body, http::basic_fields<std::allocator<char>>>&& req) {
 	// Matches paths in urls.cpp
 	FuzeHttp::Response basic_res;
+	std::string error_text;
 	try {
 		basic_res = controller->matchPathAndExecute(state, req);
 		std::cout << "[HttpSession] basic_res.status: " << basic_res.status << std::endl;
@@ -152,8 +153,10 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 			// if (!std::filesystem::is_regular_file(basic_res.file.value()))
 			// 	basic_res.file = basic_res.file.value() / "index.html";
 			std::println("Checking if file exists: {}", basic_res.file.value().string());
-			if (!std::filesystem::exists(basic_res.file.value()))
-				return FuzeHttp::buildResponse<http::empty_body>(FuzeHttp::Response{.status=http::status::bad_request, .error_message=std::format("File not found from target `{}`", std::string(req.target()))}, req);
+			if (!std::filesystem::exists(basic_res.file.value())) {
+				error_text = std::format("Target not found: `{}`", std::string(req.target()));
+				return FuzeHttp::buildResponse<http::string_body>(FuzeHttp::Response{.status=http::status::not_found, .error_message=error_text, .body=error_text}, req);
+			}
 			else
 				return FuzeHttp::buildResponse<http::file_body>(basic_res, req);
 		}
@@ -161,13 +164,19 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 			return FuzeHttp::buildResponse<http::empty_body>(basic_res, req);
 	}
 	catch(const std::exception& e) {
-		std::string error_text = std::format("[HttpSession] {}", e.what());
-		std::cerr << error_text << std::endl;
-		basic_res = FuzeHttp::Response{
-			.status = http::status::internal_server_error,
-			.error_message = error_text
-		};
-		return FuzeHttp::buildResponse<http::empty_body>(basic_res, req);
-	}
+		error_text = e.what(); }
+	catch (const std::string& thrown_error_text) {
+		error_text = thrown_error_text; }
+	catch (const char* thrown_error_text) {
+		error_text = std::string(thrown_error_text); }
+	// Codeflow watchamacallit reaches here if an exception was thrown
+	error_text = std::format("An exception was thrown: {}", error_text);
+	std::cerr << error_text << std::endl;
+	basic_res = FuzeHttp::Response{
+		.status = http::status::internal_server_error,
+		.error_message = error_text,
+		.body = error_text
+	};
+	return FuzeHttp::buildResponse<http::string_body>(basic_res, req);
 }
 } // namespace FuzeHttp

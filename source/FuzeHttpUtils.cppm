@@ -139,6 +139,12 @@ inline std::string insertExtensionToFileName(const std::string& file_name, const
 	return new_file_name;
 }
 
+inline bool isValidURLParameter(const std::string& parameter) {
+	// https://stackoverflow.com/a/2926983/18658154
+	return find_if(parameter.begin(), parameter.end(),
+		[](char c) { return !(isalnum(c) || (c == '_') || (c == '-')); }) == parameter.end();
+}
+
 // Mysteriously doesnt link when placed in cpp file
 inline void applyOptionsToTemplates(const std::vector<TemplateMacro*>& options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags){
 	std::println("Adding options to templates...");
