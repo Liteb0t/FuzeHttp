@@ -5,6 +5,8 @@ module;
 #include "Request.hpp"
 // #include "State_WebsocketSession_declarations.hpp"
 // #include "WebsocketSession.hpp"
+#include <boost/json/object.hpp>
+#include <boost/json/serialize.hpp>
 #include <filesystem>
 #include <iostream>
 #include <list>
@@ -277,6 +279,12 @@ public:
 				ss
 			)
 		);
+	}
+	void send(const std::string& data) {
+		this->send(std::make_shared<const std::string>(data));
+	}
+	void send(const boost::json::object& json) {
+		this->send(std::make_shared<const std::string>(boost::json::serialize(json)));
 	}
 	std::optional<Client> getClient() const { return this->client; }
 protected:

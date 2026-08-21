@@ -2,6 +2,7 @@ module;
 // #include "Listener.hpp"
 #include <boost/asio.hpp>
 #define BOOST_DLL_USE_STD_FS
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/hash2/md5.hpp>
 #include <boost/json.hpp>
@@ -115,6 +116,71 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 		.media = media_directory,
 		.sqlite_file = sqlite_file
 	};
+}
+
+// Mysteriously doesnt link when placed in cpp file
+inline void applyOptionsToTemplates(const std::vector<TemplateMacro*>& options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags){
+	// std::println("Adding options to templates...");
+	for (auto option : options)
+		std::println("{} :: {}", option->token, option->string());
+	for (const std::filesystem::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(document_root)) {
+		if (!std::filesystem::is_regular_file(dir_entry))
+			continue;
+		int file_extension_index;
+		if ((file_extension_index = dir_entry.path().filename().string().rfind(".")) == -1) {
+			file_extension_index = dir_entry.path().filename().string().size();
+		}
+		if (!dir_entry.path().filename().string().substr(0, file_extension_index).ends_with(".template"))
+			continue;
+		// std::println("[applyOptionsToTemplates] path: {}", dir_entry.path().string());
+		std::ifstream file_template_stream(dir_entry.path());
+		std::string out_filename = dir_entry.path().filename().string().substr(0, file_extension_index - sizeof(".template")+1) + ".GENERATED" + dir_entry.path().filename().string().substr(file_extension_index);
+		// if (out_filename.starts_with('_'))
+		// 	out_filename = out_filename.substr(1);
+		// std::println(" ->{} ", out_filename);
+		std::ofstream file_output_stream(dir_entry.path().parent_path() / out_filename);
+		std::string file_line;
+		while (std::getline(file_template_stream, file_line)) {
+			for (auto option : options) {
+				if (option->includeInFrontend())
+					boost::replace_all(file_line, std::format("CONFIG_{}", option->token), option->string());
+			}
+			if (size_t file_token_i; (file_token_i = file_line.find("FILE_")) != std::string::npos) {
+				size_t file_token_value_i = file_token_i + sizeof "FILE_";
+				// std::println("{}", file_line[file_token_value_i]);
+				if (file_line[file_token_value_i - 1] != '"')
+					throw std::runtime_error("FILE_ macro requires \" characters around path");
+				size_t closing_index = file_line.find('"', file_token_value_i);
+				// std::println("{}", file_line[closing_index]);
+				if (closing_index == std::string::npos)
+					throw std::runtime_error("FILE_ macro missing closing \" character");
+				std::string file_token_value = file_line.substr(file_token_value_i, closing_index - file_token_value_i);
+				// std::println("file_token_value: {}", file_token_value);
+				std::filesystem::path file_token_path = file_token_value;
+				// std::println("file_token_path: {}", file_token_value);
+				std::filesystem::path resolved_file_token_path = dir_entry.path().parent_path() / file_token_path;
+				// std::println("resolved_file_token_path: {}", resolved_file_token_path.string());
+				std::filesystem::path proximate_file_token_path = std::filesystem::proximate(resolved_file_token_path, document_root);
+				if (auto it = manifest_frontend_etags.find(proximate_file_token_path.string()); it != manifest_frontend_etags.end()) {
+					// std::println("Found manifest etag! {}", it->second);
+					file_line.erase(file_token_i, closing_index+1 - file_token_i);
+					file_line.insert(file_token_i, insertExtensionToFileName(file_token_value, it->second));
+				}
+				else
+					throw std::runtime_error(std::format("Etag not found\nPath: {}\n Line: {}", proximate_file_token_path.string(), file_line));
+
+
+				// std::filesystem::path proximate_file_token_path = std::filesystem::proximate(file_token_path);
+				// std::println("resolved_file_token_path: {}", resolved_file_token_path.string());
+				// TODO replace file_token_value with cache-busted version by finding path from map
+				// std::filesystem::path dependency_path = file_token_value;
+			}
+			file_output_stream << file_line << std::endl;
+		}
+		file_output_stream.close();
+		file_template_stream.close();
+	}
+	std::println("Done.");
 }
 } // namespace FuzeHttp
 
@@ -245,7 +311,7 @@ public:
 #ifdef FUZEDBI_POSTGRES
 			this->db = new FuzeDBI::Connection(postgresql_user, postgresql_host, postgresql_port, postgresql_database_name);
 #elifdef FUZEDBI_SQLITE
-			print("sqlite_database_file: {}", program_directories.sqlite_file.string());
+			std::print("sqlite_database_file: {}", program_directories.sqlite_file.string());
 
 			this->db = new FuzeDBI::Connection(program_directories.sqlite_file.string());
 #endif
@@ -387,17 +453,17 @@ public:
 		state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
 		state->media_location = program_directories.media;
 		state->busted_target_to_target = std::move(busted_target_to_target);
-		std::println("Busted target to target:");
-		for (const auto& target :state-> busted_target_to_target)
-			std::println("{} :: {}", target.first, target.second);
+		// std::println("Busted target to target:");
+		// for (const auto& target :state-> busted_target_to_target)
+		// 	std::println("{} :: {}", target.first, target.second);
 		state->manifest_frontend_etags = std::move(manifest_frontend_etags);
-		std::print("manifest_frontend_etags: ");
-		for (const auto& target : state->manifest_frontend_etags)
-			std::println("{} :: {}", target.first, target.second);
+		// std::print("manifest_frontend_etags: ");
+		// for (const auto& target : state->manifest_frontend_etags)
+		// 	std::println("{} :: {}", target.first, target.second);
 		state->files_generated_from_templates = std::move(files_generated_from_templates);
 		state->frontend_etag = frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
 		// this->state = std::move(state);
-		std::println("frondend_etag: {}", state->frontend_etag);
+		// std::println("frondend_etag: {}", state->frontend_etag);
 		state->parser_body_size_limit_mb = parser_body_size_limit_mb;
 		return -1;
 	}

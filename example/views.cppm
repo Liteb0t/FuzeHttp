@@ -44,8 +44,9 @@ FuzeHttp::Response createGroup(shared_state* state, FuzeHttp::Request req) {
 		new_group_name = group_json.at("name").as_string();
 	}
 	catch(const std::exception& e) {
-		std::cerr << "JSON error " << e.what() << std::endl;
-		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = std::format("[createGroup] {}", e.what())};
+		std::string error_message = std::format("[createGroup] JSON error: {}", e.what());
+		std::cerr << error_message << std::endl;
+		return FuzeHttp::Response{.status = http::status::bad_request, .error_message = error_message};
 	}
 	int new_group_rank = state->getClientRank(client) + 1;
 	/*int new_group_id = */state->addGroup(new_group_name, new_group_rank);

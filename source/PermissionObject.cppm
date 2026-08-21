@@ -48,7 +48,7 @@ public:
 		db->query<void>("UPDATE _sequences SET permission_object_id = $1", this->id+1);
 	}
 	void cacheAllPermissions() {
-		std::cout << "[PermissionObjectBase] retrieving permissions for " << this->id << ": ";
+		// std::cout << "[PermissionObjectBase] retrieving permissions for " << this->id << ": ";
 		for (auto permission_collection_tuple : db->queryRows<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
 			std::optional<int> account_id = std::get<1>(permission_collection_tuple);
 			std::optional<int> group_id = std::get<2>(permission_collection_tuple);
@@ -63,7 +63,7 @@ public:
 			else
 				this->group_permissions.emplace(group_id.value(), permission_collection);
 		}
-		std::cout << "done." << std::endl;
+		// std::cout << "done." << std::endl;
 	}
 	void addGroupPermissionCollection(int group_id) {
 		if (this->permissionCollectionExistsForGroup(group_id))
@@ -135,7 +135,7 @@ public:
 		// PUBLIC and USERS are built-in, that is, they are never placed in an account's group list. This is because every account is implicitly a part of these two groups
 		inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::PUBLIC));
 		if (client && client.value().account_id) {
-			std::cout << "[clientHasPermission] account_id: " << client.value().account_id.value() << std::endl;
+			// std::cout << "[clientHasPermission] account_id: " << client.value().account_id.value() << std::endl;
 			inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::USERS));
 			std::vector<int> user_ordered_groups = this->getOrderedGroupsContainingMember(client.value().account_id.value());
 			for (std::vector<int>::const_reverse_iterator it = user_ordered_groups.rbegin(); it != user_ordered_groups.rend(); it++) {
@@ -183,11 +183,6 @@ public:
 		}
 
 		boost::json::object user_permissions_json;
-		// int user_rank = this->getUserRank(client_id);
-		std::cout << "[PermissionManager] getting user_permissions_json..." << std::endl;
-		// for (const std::pair<int, User> user : *this->getUsers()) {
-		//const std::unordered_map<int, Account>& _accounts = this->getAccounts();
-		//for (std::unordered_map<int, Account>::const_iterator user_it = _accounts.begin(); user_it != _accounts.end(); user_it++) {
 		for (const std::pair<int, Account>& account_pair : this->getAccounts()) {
 			int account_id = account_pair.first;
 			std::cout << account_id << ", ";

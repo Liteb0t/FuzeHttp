@@ -109,15 +109,15 @@ public:
 		if (res.file) { // cache controle
 			if (std::filesystem::is_directory(res.file.value()))
 				res.file = res.file.value() / "index.html";
-			std::print("manifest_frontend_etags: ");
-			for (const auto& target : state->manifest_frontend_etags)
-				std::println("{} :: {}", target.first, target.second);
-
-			std::println("Busted target to target:");
-			for (const auto& target :state-> busted_target_to_target)
-				std::println("{} :: {}", target.first, target.second);
+			// std::print("manifest_frontend_etags: ");
+			// for (const auto& target : state->manifest_frontend_etags)
+			// 	std::println("{} :: {}", target.first, target.second);
+			//
+			// std::println("Busted target to target:");
+			// for (const auto& target :state-> busted_target_to_target)
+			// 	std::println("{} :: {}", target.first, target.second);
 			std::string target = std::filesystem::proximate(res.file.value(), state->getDocumentRoot()).string();
-			std::println("Proximate target (pre):  {}", target);
+			// std::println("Proximate target (pre):  {}", target);
 
 			if (target.empty() || target.ends_with('/'))
 				target += "index.html";
