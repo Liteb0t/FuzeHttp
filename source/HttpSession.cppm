@@ -26,7 +26,7 @@ export namespace FuzeHttp {
 // The concrete type of the response message (which depends on the
 // request), is type-erased in message_generator.
 template<class StateType, class WebsocketSessionType>
-class HttpSession : public boost::enable_shared_from_this<HttpSession<StateType, WebsocketSessionType>> {
+class HttpSession : public std::enable_shared_from_this<HttpSession<StateType, WebsocketSessionType>> {
 public:
 	HttpSession(boost::asio::ip::tcp::socket&& socket, StateType* state, FuzeHttp::Controller<StateType*>* controller)
 			: stream_(std::move(socket)),
@@ -97,7 +97,7 @@ private:
 		if(websocket::is_upgrade(parser_->get())) {
 			// Create a websocket session, transferring ownership
 			// of both the socket and the HTTP request.
-			boost::make_shared<WebsocketSessionType>(stream_.release_socket(), state_)->run(parser_->release());
+			std::make_shared<WebsocketSessionType>(stream_.release_socket(), state_)->run(parser_->release());
 			return;
 		}
 		else {

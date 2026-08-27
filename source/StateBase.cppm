@@ -255,7 +255,7 @@ private:
 	friend class WebsocketSession;
 }; // class State
 
-class WebsocketSession : public boost::enable_shared_from_this<WebsocketSession> {
+class WebsocketSession : public std::enable_shared_from_this<WebsocketSession> {
 public:
 	WebsocketSession(boost::asio::ip::tcp::socket&& socket, StateBase* state)
 			: ws_(std::move(socket)) , state_(state) {

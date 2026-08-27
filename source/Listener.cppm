@@ -14,7 +14,7 @@ import FuzeHttp.HttpSession;
 export namespace FuzeHttp {
 // Accepts incoming connections and launches the sessions
 template<class StateType, class WebsocketSessionType>
-class Listener : public boost::enable_shared_from_this<Listener<StateType, WebsocketSessionType>> {
+class Listener : public std::enable_shared_from_this<Listener<StateType, WebsocketSessionType>> {
 public:
 	Listener(boost::asio::io_context& io_context, boost::asio::ip::tcp::endpoint endpoint, StateType* state)
 			: io_context_(io_context) , acceptor_(io_context) , state_(state), controller(new FuzeHttp::Controller<StateType*>()) {
@@ -80,7 +80,7 @@ private:
 			return fail(ec, "accept");
 		else {
 			// Launch a new session for this connection
-			boost::make_shared<FuzeHttp::HttpSession<StateType, WebsocketSessionType>>(
+			std::make_shared<FuzeHttp::HttpSession<StateType, WebsocketSessionType>>(
 				std::move(socket),
 				state_,
 				controller)->run();

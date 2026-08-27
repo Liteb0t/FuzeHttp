@@ -486,7 +486,7 @@ public:
 		boost::asio::io_context io_context;
 			// Create and launch a listening port
 		std::println("Creating a listening port...");
-		boost::make_shared<Listener<StateType, WebsocketSessionType>>(
+		std::make_shared<Listener<StateType, WebsocketSessionType>>(
 			io_context,
 			boost::asio::ip::tcp::endpoint{address, server_port},
 			state.get()
