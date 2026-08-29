@@ -100,7 +100,7 @@ void firstTimeSetup(FuzeDBI::Connection* fuze_dbi, const std::filesystem::path& 
 	catch (std::exception& exception) {
 		std::cout << "[Migrations] Exception in DB init: " << exception.what() << std::endl;
 #ifdef FUZEDBI_SQLITE
-		std::cout << "Remove SQLite database file? (Y/n) ";
+		std::cout << "Remove SQLite database file? A new one will be created on next startup. (y/n) ";
 		std::string do_remove;
 		std::cin >> do_remove;
 		if (do_remove.empty() || do_remove[0] == 'Y' || do_remove[0] == 'y')

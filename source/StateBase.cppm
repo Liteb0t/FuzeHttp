@@ -74,6 +74,7 @@ public:
 		std::string session_id_base64 = cookie.substr(cookie.find("=")+1);
 		// TODO trim if multiple cookies found
 		std::cout << "[FuzeHttp] Received session ID: '" <<session_id_base64 << "'" << std::endl;
+		std::lock_guard<std::mutex> lock(mutex);
 		if (std::unordered_map<std::string, FuzeHttp::Session>::const_iterator it = this->sessions.find(session_id_base64); it != this->sessions.end()) {
 			auto client_it = this->clients.find(it->second.client_id);
 			if (client_it == this->clients.end()) {
@@ -87,6 +88,7 @@ public:
 			return {};
 	}
 	Client createClient(std::optional<int> account_id = {}) {
+		std::lock_guard<std::mutex> lock(mutex);
 		int new_client_id = db->query<int>("SELECT client_id FROM _sequences");
 		db->query<void>("UPDATE _sequences SET client_id = $1", new_client_id+1);
 		std::cout << "[FuzeHttp] Creating new client with ID " << new_client_id << std::endl;
@@ -102,6 +104,7 @@ public:
 	}
 	// std::variant<Client, FuzeHttp::Response> getRequiredClient(FuzeHttp::Request req) const;
 	std::string createSession(int client_id) {
+		std::lock_guard<std::mutex> lock(mutex);
 		FuzeHttp::Session session{
 			.client_id = client_id,
 			.created_at = std::chrono::system_clock::now()
@@ -117,6 +120,7 @@ public:
 		return key_base64;
 	}
 	std::string createInvite(int granted_group_id) {
+		std::lock_guard<std::mutex> lock(mutex);
 		FuzeHttp::Invite invite{
 			.granted_group_id = granted_group_id,
 			.created_at = std::chrono::system_clock::now()
@@ -134,6 +138,7 @@ public:
 			return static_cast<int>(BUILTIN_GROUPS::PUBLIC);
 	}
 	void clearExpiredSessions() {
+		std::lock_guard<std::mutex> lock(mutex);
 		int initial_number_of_sessions = this->sessions.size();
 		std::chrono::time_point<std::chrono::system_clock> current_time = std::chrono::system_clock::now();
 		std::erase_if(this->sessions, [this, &current_time](const std::pair<std::string, FuzeHttp::Session>& session_pair){
@@ -149,12 +154,12 @@ public:
 	const std::filesystem::path& getDocumentRoot() const { return document_root; }
 	const std::string getSecret() const { return this->secret_base64; }
 	void websocketJoin (FuzeHttp::WebsocketSession* session) {
-		std::lock_guard<std::mutex> lock(mutex_);
+		std::lock_guard<std::mutex> lock(mutex);
 		websocket_sessions.insert(session);
 	}
 	virtual void websocketRead (FuzeHttp::WebsocketSession* session) {}
 	void websocketLeave(FuzeHttp::WebsocketSession* session) {
-		std::lock_guard<std::mutex> lock(mutex_);
+		std::lock_guard<std::mutex> lock(mutex);
 		websocket_sessions.erase(session);
 	}
 	void setSecretFromEnvironmentVariable(const std::string& environment_variable_for_secret, bool secret_required) {
@@ -172,10 +177,11 @@ public:
 		else
 			std::println("Warning: Environment variable {} not found. Continuing anyway because secret_required is set to false.", environment_variable_for_secret);
 	}
-	std::string getIntermediateSaltFromAccount(int account_id) {
+	std::string getIntermediateSaltFromAccount(int account_id) const {
 		return db->query<std::string>("SELECT intermediate_salt_base64 FROM account WHERE id = $1", account_id);
 	}
-	const FuzeHttp::Client& getClientFromAccountId(int account_id) const { // We assume the account with the ID is already checked
+	const FuzeHttp::Client getClientFromAccountId(int account_id) const { // We assume the account with the ID is already checked
+		std::lock_guard<std::mutex> lock(mutex);
 		if (!this->accounts.at(account_id).client_id)
 			throw std::runtime_error(std::format("[getClientFromAccountId] No client ID assigned to account {}", account_id));
 		int client_id = this->accounts.at(account_id).client_id.value();
@@ -198,6 +204,7 @@ public:
 	unsigned int parser_body_size_limit_mb;
 protected:
 	const std::optional<Client> getClientFromSession(const std::string& session_id_base64) const {
+		std::lock_guard<std::mutex> lock(mutex);
 		if (std::unordered_map<std::string, FuzeHttp::Session>::const_iterator session = this->sessions.find(session_id_base64); session != this->sessions.end())
 			return this->clients.at(session->second.client_id);
 		else
@@ -220,10 +227,10 @@ protected:
 	// FuzeDBI::Connection* fuze_dbi;
 	std::vector<FuzeHttp::TemplateMacro*> options;
 	// This mutex synchronizes all access to websocket_sessions
-	std::mutex mutex_;
+	mutable std::mutex mutex;
 private:
 	void loadSessions() {
-		for (auto session_tuple : db->queryRows<std::tuple<int, std::string, int>>("SELECT client_id, key, created_at FROM session")) {
+		for (auto session_tuple : db->queryRowsIncrementally<std::tuple<int, std::string, int>>("SELECT client_id, key, created_at FROM session")) {
 			int seconds_since_epoch = std::get<2>(session_tuple); // TODO use long instead of int
 			std::chrono::seconds sec(seconds_since_epoch);
 			std::chrono::time_point<std::chrono::system_clock> created_at(sec);
@@ -236,7 +243,7 @@ private:
 	}
 	void loadClients() {
 		// TODO clear clients which have expired or dont have an account
-		for (auto client_tuple : db->queryRows<std::tuple<int, int>>("SELECT id, account_id FROM client")) {
+		for (auto client_tuple : db->queryRowsIncrementally<std::tuple<int, int>>("SELECT id, account_id FROM client")) {
 			std::optional<int> account_id;
 			if (std::get<1>(client_tuple) != -1)
 				account_id = std::get<1>(client_tuple);

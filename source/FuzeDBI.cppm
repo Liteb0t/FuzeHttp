@@ -6,7 +6,9 @@ module;
 #include <stdexcept>
 #include <string>
 #include <cstring>
+#include <mutex>
 #include <variant>
+#include <vector>
 #ifdef FUZEDBI_POSTGRES
 #include <libpq-fe.h>
 #elifdef FUZEDBI_SQLITE
@@ -51,7 +53,7 @@ public:
 #elifdef FUZEDBI_SQLITE
 	Connection(const std::string& database_filepath) {
 		std::cout << "[FuzeDBI] Connecting to SQLite database at " << database_filepath << std::endl;
-		int ec = sqlite3_open(database_filepath.c_str(), &db);
+		int ec = sqlite3_open_v2(database_filepath.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr); // https://sqlite.org/c3ref/open.html
 		if (ec) {
 			throw std::runtime_error(std::format("[DatabaseConnectionSQLite] Can't open database: {}", sqlite3_errmsg(db)));
 			return;
@@ -152,8 +154,19 @@ public:
 #endif
 		throw std::runtime_error("[FuzeDBI] Reached end of query function without a return value");
 	}
+	// Thread-safer than old queryRows
 	template<class ReturnType, class... Args>
-	QueryIterator<ReturnType> queryRows(const std::string& statement, Args... args) {
+	std::vector<ReturnType> queryRows(const std::string& statement, Args... args) {
+		std::lock_guard<std::mutex> lock(mutex);
+		std::vector<ReturnType> rows;
+		// TODO move logic from iterator to internal of this function
+		for (auto row : this->queryRowsIncrementally<ReturnType, Args...>(statement))
+			rows.push_back(row);
+		return rows;
+	}
+	// Deprecated
+	template<class ReturnType, class... Args>
+	QueryIterator<ReturnType> queryRowsIncrementally(const std::string& statement, Args... args) {
 #ifdef FUZEDBI_POSTGRES
 		PGresult* result = this->exec(statement, args...);
 		ExecStatusType status = PQresultStatus(result);
@@ -277,6 +290,7 @@ public:
 	}
 #endif
 private:
+	std::mutex mutex;
 #ifdef FUZEDBI_POSTGRES
 	PGconn* db;
 	template<std::size_t I = 0, typename...TupleParams>

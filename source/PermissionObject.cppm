@@ -1,7 +1,9 @@
 module;
 // #include "Group.hpp"
 #include <boost/json/object.hpp>
+#include <boost/json/serialize.hpp>
 #include <iostream>
+#include <mutex>
 #include <print>
 #include <unordered_set>
 #include <vector>
@@ -49,12 +51,12 @@ public:
 	}
 	void cacheAllPermissions() {
 		// std::cout << "[PermissionObjectBase] retrieving permissions for " << this->id << ": ";
-		for (auto permission_collection_tuple : db->queryRows<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
+		for (auto permission_collection_tuple : db->queryRowsIncrementally<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
 			std::optional<int> account_id = std::get<1>(permission_collection_tuple);
 			std::optional<int> group_id = std::get<2>(permission_collection_tuple);
 			PermissionCollection permission_collection(std::get<0>(permission_collection_tuple), account_id, group_id);
 
-			for (auto permission_setting_tuple : db->queryRows<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
+			for (auto permission_setting_tuple : db->queryRowsIncrementally<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
 				std::cout << std::get<0>(permission_setting_tuple) << ", ";
 				permission_collection.addPermissionSetting(std::get<0>(permission_setting_tuple), std::get<1>(permission_setting_tuple), static_cast<THREE_STATE_SETTING>(std::get<2>(permission_setting_tuple)));
 			}
@@ -101,11 +103,13 @@ public:
 	void setGroupPermission(int group_id, int permission_type, THREE_STATE_SETTING setting) {
 		if (!this->group_permissions.contains(group_id))
 			this->addGroupPermissionCollection(group_id);
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		this->group_permissions.at(group_id).setPermission(permission_type, setting, db);
 	}
 	void setAccountPermission(int user_id, int permission_type, THREE_STATE_SETTING setting) {
 		if (auto it = this->account_permissions.find(user_id); it == this->account_permissions.end())
 			this->addAccountPermissionCollection(user_id);
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		this->account_permissions.at(user_id).setPermission(permission_type, setting, db);
 	}
 	bool passPermissionForGroup(bool inherited_permission, int permission, int group_id) const {
@@ -204,6 +208,7 @@ public:
 		};
 	}
 protected:
+	mutable std::mutex permission_mutex;
 	int getPermissionObjectId() const { return this->id; }
 	FuzeDBI::Connection* db;
 private:
@@ -243,6 +248,7 @@ public:
 			return this->getAccountRank(client.value().account_id.value());
 	}
 	int getAccountRank(int account_id) const override {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		// if (this->owner_id && account_id == this->owner_id.value())
 		// 	return 0; // This is the most privileged rank
 		int i;
@@ -253,20 +259,23 @@ public:
 		return i;
 	}
 	std::optional<int> getIdFromUsername(const std::string& username) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		if (auto it = this->username_to_id_map.find(username); it != this->username_to_id_map.end())
 			return it->second;
 		else
 			return {};
 	}
 	std::string getUsernameFromAccount(int account_id) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		return this->accounts.at(account_id).username;
 	}
 	bool userExists(std::string username) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		std::unordered_map<std::string, int>::const_iterator it = this->username_to_id_map.find(username);
 	   	return it != this->username_to_id_map.end();
 	};
 	bool accountMatchesPassword(int account_id, const std::string& password) {
-		for (int id :db->queryRows<int>("SELECT id FROM account WHERE password_hash_hash_base64 = $1", password))
+		for (int id :db->queryRowsIncrementally<int>("SELECT id FROM account WHERE password_hash_hash_base64 = $1", password))
 			return true;
 		return false;
 	}
@@ -280,6 +289,7 @@ public:
 		return this->accounts;
 	}
 	int getGroupRank(int group_id) const override {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		int rank;
 		for (rank = 0; this->ordered_groups[rank] != group_id; rank++)
 			;
@@ -291,7 +301,7 @@ public:
 		for (int member_id : this->groups.at(group_id).getMembers()) {
 			this->removeUserFromGroup(member_id, group_id);
 		}
-		for (int permission_collection_id : db->queryRows<int>("SELECT id FROM permission_collection WHERE permission_group_id = $1", group_id))
+		for (int permission_collection_id : db->queryRowsIncrementally<int>("SELECT id FROM permission_collection WHERE permission_group_id = $1", group_id))
 			db->query<void>("DELETE FROM permission_setting WHERE permission_collection_id = $1", permission_collection_id);
 		db->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
 		db->query<void>("DELETE FROM permission_group WHERE id = $1", group_id);
@@ -300,6 +310,7 @@ public:
 		this->saveGroupHeirarchy();
 	}
 	boost::json::array getGroupMembersAsJson(int group_id) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		boost::json::array members;
 		for (int member_id : this->groups.at(group_id).getMembers())
 			members.emplace_back(member_id);
@@ -393,18 +404,18 @@ protected:
 	void cacheAllGroups() {
 		std::cout << "[PermissionManager] Retreiving groups from database... ";
 		// struct db_group_array* group_array = db_retrieve_groups();
-		for (auto group_tuple : db->queryRows<std::tuple<int, std::string>>("SELECT id, name FROM permission_group")) {
+		for (auto group_tuple : db->queryRowsIncrementally<std::tuple<int, std::string>>("SELECT id, name FROM permission_group")) {
 			Group group(std::get<0>(group_tuple), std::get<1>(group_tuple));
 			this->groups.emplace(std::get<0>(group_tuple), group);
 		}
 		std::cout << "added " << this->groups.size() << " groups";
 
-		for (auto group_id : db->queryRows<int>("SELECT permission_group_id FROM permission_group_heirarchy ORDER BY rank")) {
+		for (auto group_id : db->queryRowsIncrementally<int>("SELECT permission_group_id FROM permission_group_heirarchy ORDER BY rank")) {
 			this->ordered_groups.push_back(group_id);
 		}
 		std::cout << ", established heirarchy";
 
-		for (auto group_member : db->queryRows<std::tuple<int, int>>("SELECT permission_group_id, account_id FROM permission_group_account")) {
+		for (auto group_member : db->queryRowsIncrementally<std::tuple<int, int>>("SELECT permission_group_id, account_id FROM permission_group_account")) {
 			this->groups.at(std::get<0>(group_member)).addMember(std::get<1>(group_member));
 		}
 		std::cout << ", added users to groups." << std::endl;
@@ -440,7 +451,7 @@ protected:
 	}
 	void cacheAllAccounts()  {
 		std::cout << "[PermissionManager] Retreiving accounts from database... ";
-		for (auto user_t : db->queryRows<std::tuple<int, std::string>>("SELECT id, username FROM account")) {
+		for (auto user_t : db->queryRowsIncrementally<std::tuple<int, std::string>>("SELECT id, username FROM account")) {
 			std::cout << std::get<0>(user_t) << ", ";
 			this->accounts.emplace(std::get<0>(user_t), Account{
 				.id = std::get<0>(user_t),
