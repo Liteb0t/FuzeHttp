@@ -27,7 +27,7 @@ public:
 
 		std::string decoded_url = FuzeHttp::getDecodedURL(req.target());
 		std::string_view path_name = FuzeHttp::getPathName(decoded_url);
-		std::cout << "[Controller] path_name: " << path_name << std::endl;
+		std::println("[Controller] {} {}", std::string(req.method_string()), path_name);
 		if (path_name.ends_with('/'))
 			path_name = path_name.substr(0, path_name.length() - 1);
 
@@ -43,8 +43,6 @@ public:
 				section = path_name.substr(location_start_bound);
 			else
 				section = path_name.substr(location_start_bound, location_end_bound - location_start_bound);
-
-			std::println("section [{}]", section);
 			std::erase_if(matched_views, [this, &req, &section, section_index](const int view_id){
 				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index) == false;
 			});
@@ -62,7 +60,7 @@ public:
 		});
 		if (matched_views.size() > 1) {
 			int last_path_length = 1000000000;
-			std::println("Multiple views matched");
+			// std::println("Multiple views matched");
 			// Finds wildcard path with least number of segments, or any path that's absolute
 			for (int view_id : matched_views) {
 				if (this->views.at(view_id)->is_wild) {

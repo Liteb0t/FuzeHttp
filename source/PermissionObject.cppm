@@ -46,17 +46,15 @@ public:
 	} // retrieve from database
 	PermissionObjectBase(FuzeDBI::Connection* db) // On new object creation
 			: db(db),
-			id(db->query<int>("SELECT permission_object_id FROM _sequences")) {
-		db->query<void>("UPDATE _sequences SET permission_object_id = $1", this->id+1);
-	}
+			id(db->incrementSequence("permission_object_id")) {}
 	void cacheAllPermissions() {
 		// std::cout << "[PermissionObjectBase] retrieving permissions for " << this->id << ": ";
-		for (auto permission_collection_tuple : db->queryRowsIncrementally<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
+		for (auto permission_collection_tuple : db->queryRows<std::tuple<int, std::optional<int>, std::optional<int>>>("SELECT id, account_id, permission_group_id FROM permission_collection WHERE permission_object_id = $1", this->id)) {
 			std::optional<int> account_id = std::get<1>(permission_collection_tuple);
 			std::optional<int> group_id = std::get<2>(permission_collection_tuple);
 			PermissionCollection permission_collection(std::get<0>(permission_collection_tuple), account_id, group_id);
 
-			for (auto permission_setting_tuple : db->queryRowsIncrementally<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
+			for (auto permission_setting_tuple : db->queryRows<std::tuple<int, int, int>>("SELECT id, permission_number, setting FROM permission_setting WHERE permission_collection_id = $1", permission_collection.getId())) {
 				std::cout << std::get<0>(permission_setting_tuple) << ", ";
 				permission_collection.addPermissionSetting(std::get<0>(permission_setting_tuple), std::get<1>(permission_setting_tuple), static_cast<THREE_STATE_SETTING>(std::get<2>(permission_setting_tuple)));
 			}
@@ -68,100 +66,64 @@ public:
 		// std::cout << "done." << std::endl;
 	}
 	void addGroupPermissionCollection(int group_id) {
-		if (this->permissionCollectionExistsForGroup(group_id))
-			throw std::runtime_error(std::format("Attempted to create duplicate permission collection for group {}", group_id));
-		int new_permission_collection_id = db->query<int>("SELECT permission_collection_id FROM _sequences");
-		db->query<void>("UPDATE _sequences SET permission_collection_id = $1", new_permission_collection_id+1);
-		db->query<void>("INSERT INTO permission_collection(id, permission_object_id, permission_group_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, group_id);
-		std::cout << "[PermissionObjectBase] adding group permission_collection for group " << group_id << std::endl;
-		PermissionCollection permission_collection(new_permission_collection_id, {}, group_id);
-		this->group_permissions.emplace(group_id, permission_collection);
+
+		std::println("addGroupPermissionCollection locking mutex...");
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		addGroupPermissionCollectionUnlocked(group_id);
 	}
 	void addAccountPermissionCollection(int account_id) {
-		if (this->permissionCollectionExistsForAccount(account_id))
-			throw std::runtime_error(std::format("Attempted to create duplicate permission collection for account {}", account_id));
-		int new_permission_collection_id = db->query<int>("SELECT permission_collection_id FROM _sequences");
-		db->query<void>("UPDATE _sequences SET permission_collection_id = $1", new_permission_collection_id+1);
-		db->query<void>("INSERT INTO permission_collection(id, permission_object_id, account_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, account_id);
-		std::cout << "[PermissionObjectBase] adding account permission_collection for account " << account_id << std::endl;
-		PermissionCollection permission_collection(new_permission_collection_id, account_id, {});
-		this->account_permissions.emplace(account_id, permission_collection);
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		addAccountPermissionCollectionUnlocked(account_id);
 	}
 	void removeGroupPermissionCollection(int group_id) {
-		auto it = this->group_permissions.find(group_id);
-		if (it == this->group_permissions.end())
-			throw std::runtime_error(std::format("Attempted to delete group {} which doesn't exist", group_id));
-		db->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
-		this->group_permissions.erase(it);
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		removeGroupPermissionCollectionUnlocked(group_id);
 	}
 	void removeAccountPermissionCollection(int account_id) {
-		if (!this->account_permissions.contains(account_id))
-			throw std::runtime_error(std::format("Attempted to delete account {} which doesn't exist", account_id));
-		db->query<void>("DELETE FROM permission_collection WHERE account_id = $1", account_id);
-		this->account_permissions.erase(account_id);
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		removeAccountPermissionCollectionUnlocked(account_id);
 	}
 	void setGroupPermission(int group_id, int permission_type, THREE_STATE_SETTING setting) {
-		if (!this->group_permissions.contains(group_id))
-			this->addGroupPermissionCollection(group_id);
 		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (!this->group_permissions.contains(group_id))
+			this->addGroupPermissionCollectionUnlocked(group_id); // calls unlocked version to avoid double mutex loclk
 		this->group_permissions.at(group_id).setPermission(permission_type, setting, db);
 	}
 	void setAccountPermission(int user_id, int permission_type, THREE_STATE_SETTING setting) {
-		if (auto it = this->account_permissions.find(user_id); it == this->account_permissions.end())
-			this->addAccountPermissionCollection(user_id);
 		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (auto it = this->account_permissions.find(user_id); it == this->account_permissions.end())
+			this->addAccountPermissionCollectionUnlocked(user_id);
 		this->account_permissions.at(user_id).setPermission(permission_type, setting, db);
-	}
-	bool passPermissionForGroup(bool inherited_permission, int permission, int group_id) const {
-		inherited_permission = this->passInheritedPermissionForGroup(inherited_permission, permission, group_id);
-		// Check if a group permission is set for this object
-		std::unordered_map<int, PermissionCollection>::const_iterator group_iterator = this->group_permissions.find(group_id);
-		if (group_iterator != this->group_permissions.end())
-			inherited_permission = group_iterator->second.passPermission(permission, inherited_permission);
-		return inherited_permission;
-	}
-	bool passPermissionForAccount(bool inherited_permission, int permission, int account_id) const {
-		inherited_permission = this->passInheritedPermissionForAccount(inherited_permission, permission, account_id);
-		if (auto it = this->account_permissions.find(account_id); it != this->account_permissions.end()) // Check if a client permission is set for this object
-			inherited_permission = it->second.passPermission(permission, inherited_permission);
-		return inherited_permission;
 	}
 	virtual const std::vector<int>* getOrderedGroups() const = 0;
 	virtual std::vector<int> getOrderedGroupsContainingMember(int user_id) const = 0;
+	virtual std::vector<int> getOrderedGroupsContainingMemberUnlocked(int user_id) const = 0;
 	virtual bool passInheritedPermissionForGroup(bool inherited_permission, int permission, int group_id) const = 0;
 	virtual bool passInheritedPermissionForAccount(bool inherited_permission, int permission, int account_id) const = 0;
 	virtual int getClientRank(const std::optional<Client>& client) const = 0;
-	virtual int getGroupRank(int group_id) const = 0;
 	virtual int getAccountRank(int account_id) const = 0;
+	virtual int getGroupRank(int group_id) const = 0;
 	virtual const std::unordered_map<int, Account>& getAccounts() const = 0;
 	bool clientHasPermission(const std::optional<Client>& client, int permission) const {
-		bool inherited_permission = false;
-		// PUBLIC and USERS are built-in, that is, they are never placed in an account's group list. This is because every account is implicitly a part of these two groups
-		inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::PUBLIC));
-		if (client && client.value().account_id) {
-			// std::cout << "[clientHasPermission] account_id: " << client.value().account_id.value() << std::endl;
-			inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::USERS));
-			std::vector<int> user_ordered_groups = this->getOrderedGroupsContainingMember(client.value().account_id.value());
-			for (std::vector<int>::const_reverse_iterator it = user_ordered_groups.rbegin(); it != user_ordered_groups.rend(); it++) {
-				inherited_permission = this->passPermissionForGroup(inherited_permission, permission, *it);
-			}
-			inherited_permission = this->passPermissionForAccount(inherited_permission, permission, client.value().account_id.value());
-		}
-		return inherited_permission;
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		return clientHasPermissionUnlocked(client, permission);
 	}
 	bool clientHasPermissionForGroup(const std::optional<Client>& client, int permission, int group_id) const {
-		if (!this->clientHasPermission(client, permission))
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (!this->clientHasPermissionUnlocked(client, permission))
 			return false;
-		return this->getClientRank(client) < this->getGroupRank(group_id);
+		return this->getClientRankUnlocked(client) < this->getGroupRankUnlocked(group_id);
 	}
 	bool clientHasPermissionForAccount(const std::optional<Client>& client, int permission, int account_id) const {
-		if (!this->clientHasPermission(client, permission))
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (!this->clientHasPermissionUnlocked(client, permission))
 			return false;
-		return this->getClientRank(client) < this->getAccountRank(account_id);
+		return this->getClientRankUnlocked(client) < this->getAccountRankUnlocked(account_id);
 	}
 	bool permissionCollectionExistsForGroup(int group_id) const { return this->group_permissions.contains(group_id); }
 	bool permissionCollectionExistsForAccount(int account_id) const { return this->account_permissions.contains(account_id); }
 	boost::json::object getPermissionCollectionsAsJson() const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		// client_rank not used because client_editable status is given by dumpAllGroups()/dumpAllUsers()
 		// int client_rank = this->getUserRank(client_id);
 
@@ -208,6 +170,69 @@ public:
 		};
 	}
 protected:
+	bool clientHasPermissionUnlocked(const std::optional<Client>& client, int permission) const {
+		bool inherited_permission = false;
+		// PUBLIC and USERS are built-in, that is, they are never placed in an account's group list. This is because every account is implicitly a part of these two groups
+		inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::PUBLIC));
+		if (client && client.value().account_id) {
+			// std::cout << "[clientHasPermission] account_id: " << client.value().account_id.value() << std::endl;
+			inherited_permission = this->passPermissionForGroup(inherited_permission, permission, static_cast<int>(BUILTIN_GROUPS::USERS));
+			std::vector<int> user_ordered_groups = this->getOrderedGroupsContainingMemberUnlocked(client.value().account_id.value());
+			for (std::vector<int>::const_reverse_iterator it = user_ordered_groups.rbegin(); it != user_ordered_groups.rend(); it++) {
+				inherited_permission = this->passPermissionForGroup(inherited_permission, permission, *it);
+			}
+			inherited_permission = this->passPermissionForAccount(inherited_permission, permission, client.value().account_id.value());
+		}
+		return inherited_permission;
+	}
+	bool passPermissionForGroup(bool inherited_permission, int permission, int group_id) const {
+		inherited_permission = this->passInheritedPermissionForGroup(inherited_permission, permission, group_id);
+		// Check if a group permission is set for this object
+		std::unordered_map<int, PermissionCollection>::const_iterator group_iterator = this->group_permissions.find(group_id);
+		if (group_iterator != this->group_permissions.end())
+			inherited_permission = group_iterator->second.passPermission(permission, inherited_permission);
+		return inherited_permission;
+	}
+	bool passPermissionForAccount(bool inherited_permission, int permission, int account_id) const {
+		inherited_permission = this->passInheritedPermissionForAccount(inherited_permission, permission, account_id);
+		if (auto it = this->account_permissions.find(account_id); it != this->account_permissions.end()) // Check if a client permission is set for this object
+			inherited_permission = it->second.passPermission(permission, inherited_permission);
+		return inherited_permission;
+	}
+	virtual int getClientRankUnlocked(const std::optional<Client>& client) const = 0;
+	virtual int getAccountRankUnlocked(int account_id) const = 0;
+	virtual int getGroupRankUnlocked(int group_id) const = 0;
+	void addGroupPermissionCollectionUnlocked(int group_id) {
+		if (this->permissionCollectionExistsForGroup(group_id))
+			throw std::runtime_error(std::format("Attempted to create duplicate permission collection for group {}", group_id));
+		int new_permission_collection_id = db->incrementSequence("permission_collection_id");
+		db->query<void>("INSERT INTO permission_collection(id, permission_object_id, permission_group_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, group_id);
+		std::cout << "[PermissionObjectBase] adding group permission_collection for group " << group_id << std::endl;
+		PermissionCollection permission_collection(new_permission_collection_id, {}, group_id);
+		this->group_permissions.emplace(group_id, permission_collection);
+	}
+	void addAccountPermissionCollectionUnlocked(int account_id) {
+		if (this->permissionCollectionExistsForAccount(account_id))
+			throw std::runtime_error(std::format("Attempted to create duplicate permission collection for account {}", account_id));
+		int new_permission_collection_id = db->incrementSequence("permission_collection_id");
+		db->query<void>("INSERT INTO permission_collection(id, permission_object_id, account_id) VALUES ($1, $2, $3)", new_permission_collection_id, this->id, account_id);
+		std::cout << "[PermissionObjectBase] adding account permission_collection for account " << account_id << std::endl;
+		PermissionCollection permission_collection(new_permission_collection_id, account_id, {});
+		this->account_permissions.emplace(account_id, permission_collection);
+	}
+	void removeGroupPermissionCollectionUnlocked(int group_id) {
+		auto it = this->group_permissions.find(group_id);
+		if (it == this->group_permissions.end())
+			throw std::runtime_error(std::format("Attempted to delete group {} which doesn't exist", group_id));
+		db->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
+		this->group_permissions.erase(it);
+	}
+	void removeAccountPermissionCollectionUnlocked(int account_id) {
+		if (!this->account_permissions.contains(account_id))
+			throw std::runtime_error(std::format("Attempted to delete account {} which doesn't exist", account_id));
+		db->query<void>("DELETE FROM permission_collection WHERE account_id = $1", account_id);
+		this->account_permissions.erase(account_id);
+	}
 	mutable std::mutex permission_mutex;
 	int getPermissionObjectId() const { return this->id; }
 	FuzeDBI::Connection* db;
@@ -229,34 +254,21 @@ public:
 		return &(this->ordered_groups);
 	}
 	std::vector<int> getOrderedGroupsContainingMember(int user_id) const override {
-		std::vector<int> ordered_groups_containing_member;
-		ordered_groups_containing_member.reserve(this->ordered_groups.size());
-		for (int group_id : this->ordered_groups) {
-			if (this->groups.at(group_id).containsMember(user_id))
-				ordered_groups_containing_member.push_back(group_id);
-		}
-		return ordered_groups_containing_member;
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		return getOrderedGroupsContainingMemberUnlocked(user_id);
 	}
 	bool groupExists(int group_id) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		std::unordered_map<int, Group>::const_iterator it = this->groups.find(group_id); 
 		return it != this->groups.end();
 	}
 	int getClientRank(const std::optional<Client>& client) const override {
-		if (!client || !client.value().account_id)
-			return this->ordered_groups.size(); // This is the least privileged rank
-		else
-			return this->getAccountRank(client.value().account_id.value());
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		return getClientRankUnlocked(client);
 	}
 	int getAccountRank(int account_id) const override {
 		std::lock_guard<std::mutex> lock(permission_mutex);
-		// if (this->owner_id && account_id == this->owner_id.value())
-		// 	return 0; // This is the most privileged rank
-		int i;
-		for (i = 0; i < this->ordered_groups.size() - 2; i++) { // 2 is subtracted because USERS and PUBLIC are hard-coded groups
-			if (this->groups.at(ordered_groups[i]).containsMember(account_id))
-				break;
-		}
-		return i;
+		return getAccountRankUnlocked(account_id);
 	}
 	std::optional<int> getIdFromUsername(const std::string& username) const {
 		std::lock_guard<std::mutex> lock(permission_mutex);
@@ -275,7 +287,7 @@ public:
 	   	return it != this->username_to_id_map.end();
 	};
 	bool accountMatchesPassword(int account_id, const std::string& password) {
-		for (int id :db->queryRowsIncrementally<int>("SELECT id FROM account WHERE password_hash_hash_base64 = $1", password))
+		for (int id :db->queryRows<int>("SELECT id FROM account WHERE password_hash_hash_base64 = $1", password))
 			return true;
 		return false;
 	}
@@ -290,18 +302,16 @@ public:
 	}
 	int getGroupRank(int group_id) const override {
 		std::lock_guard<std::mutex> lock(permission_mutex);
-		int rank;
-		for (rank = 0; this->ordered_groups[rank] != group_id; rank++)
-			;
-		return rank + 1; // 1 is added because the ADMINISTRATORS group is one rank below OWNER
+		return getGroupRankUnlocked(group_id);
 	}
 	void eraseGroup(int group_id) {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		std::vector<int>::const_iterator it = std::find(this->ordered_groups.begin(), this->ordered_groups.end(), group_id);
 		std::cout << *it << " should match " << group_id << std::endl;
 		for (int member_id : this->groups.at(group_id).getMembers()) {
-			this->removeUserFromGroup(member_id, group_id);
+			this->removeUserFromGroupUnlocked(member_id, group_id);
 		}
-		for (int permission_collection_id : db->queryRowsIncrementally<int>("SELECT id FROM permission_collection WHERE permission_group_id = $1", group_id))
+		for (int permission_collection_id : db->queryRows<int>("SELECT id FROM permission_collection WHERE permission_group_id = $1", group_id))
 			db->query<void>("DELETE FROM permission_setting WHERE permission_collection_id = $1", permission_collection_id);
 		db->query<void>("DELETE FROM permission_collection WHERE permission_group_id = $1", group_id);
 		db->query<void>("DELETE FROM permission_group WHERE id = $1", group_id);
@@ -317,14 +327,14 @@ public:
 		return members;
 	}
 	void removeUserFromGroup(int account_id, int group_id) {
-		this->groups.at(group_id).removeMember(account_id);
-		db->query<void>("DELETE FROM permission_group_account WHERE permission_group_id = $1 AND account_id = $2", group_id, account_id);
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		removeUserFromGroupUnlocked(account_id, group_id);
 	}
 	int addGroup(std::string group_name, int group_rank){
 		if (group_name.length() > Group::MAX_NAME)
 			throw std::runtime_error(std::format("Group name length {} is over the limit of {}", group_name.length(), Group::MAX_NAME));
-		int new_group_id = db->query<int>("SELECT permission_group_id FROM _sequences");
-		db->query<void>("UPDATE _sequences SET permission_group_id = $1", new_group_id+1);
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		int new_group_id = db->incrementSequence("permission_group_id");
 		db->query<void>("INSERT INTO permission_group(id, name) VALUES ($1, $2)", new_group_id, group_name.c_str());
 		Group new_group(new_group_id, group_name);
 		this->groups.emplace(new_group_id, new_group);
@@ -335,9 +345,10 @@ public:
 		return new_group_id;
 	}
 	void addAccountToGroup(int account_id, int group_id) {
-		if (!this->groupExists(group_id))
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (!this->groups.contains(group_id))
 			throw std::runtime_error(std::format("[addAccountToGroup] Group {} does not exist", group_id));
-		if (!this->accountExists(account_id))
+		if (!this->accounts.contains(account_id))
 			throw std::runtime_error(std::format("[addAccountToGroup] Account {} does not exist", account_id));
 		if (static_cast<BUILTIN_GROUPS>(group_id) == BUILTIN_GROUPS::USERS || static_cast<BUILTIN_GROUPS>(group_id) == BUILTIN_GROUPS::PUBLIC)
 			throw std::runtime_error("[addAccountToGroup] Attempted to add user to one or more groups to which no user can be added, namely, the \"USERS\" and \"PUBLIC\" groups.");
@@ -347,14 +358,15 @@ public:
 		}
 	}
 	void setOrderedGroups(std::vector<int> ordered_groups) {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		this->ordered_groups = ordered_groups;
 		this->saveGroupHeirarchy(); // Apply changes to the database
 	}
 	int createAccount(const std::string& username, const char* password_hash_hash, const char* intermediate_salt_base64) {
+		std::lock_guard<std::mutex> lock(permission_mutex);
 		if (this->accountExists(username))
 			throw std::runtime_error("An account with this username already exists");
-		int new_account_id = db->query<int>("SELECT account_id FROM _sequences");
-		db->query<void>("UPDATE _sequences SET account_id = $1", new_account_id+1);
+		int new_account_id = db->incrementSequence("account_id");
 		db->query<void>("INSERT INTO account(id, username, password_hash_hash_base64, intermediate_salt_base64) VALUES ($1, $2, $3, $4)", new_account_id, username.c_str(), password_hash_hash, intermediate_salt_base64);
 		this->accounts.emplace(new_account_id, Account{
 			.id = new_account_id,
@@ -381,6 +393,15 @@ public:
 	bool passInheritedPermissionForAccount( bool inherited_permission, int permission, int account_id ) const override { return inherited_permission; }
 	const std::optional<int> owner_id;
 protected:
+	std::vector<int> getOrderedGroupsContainingMemberUnlocked(int user_id) const override {
+		std::vector<int> ordered_groups_containing_member;
+		ordered_groups_containing_member.reserve(this->ordered_groups.size());
+		for (int group_id : this->ordered_groups) {
+			if (this->groups.at(group_id).containsMember(user_id))
+				ordered_groups_containing_member.push_back(group_id);
+		}
+		return ordered_groups_containing_member;
+	}
 	const Group* getGroup(int group_id) const {
 		return &(this->groups.at(group_id));
 	}
@@ -404,18 +425,18 @@ protected:
 	void cacheAllGroups() {
 		std::cout << "[PermissionManager] Retreiving groups from database... ";
 		// struct db_group_array* group_array = db_retrieve_groups();
-		for (auto group_tuple : db->queryRowsIncrementally<std::tuple<int, std::string>>("SELECT id, name FROM permission_group")) {
+		for (auto group_tuple : db->queryRows<std::tuple<int, std::string>>("SELECT id, name FROM permission_group")) {
 			Group group(std::get<0>(group_tuple), std::get<1>(group_tuple));
 			this->groups.emplace(std::get<0>(group_tuple), group);
 		}
 		std::cout << "added " << this->groups.size() << " groups";
 
-		for (auto group_id : db->queryRowsIncrementally<int>("SELECT permission_group_id FROM permission_group_heirarchy ORDER BY rank")) {
+		for (auto group_id : db->queryRows<int>("SELECT permission_group_id FROM permission_group_heirarchy ORDER BY rank")) {
 			this->ordered_groups.push_back(group_id);
 		}
 		std::cout << ", established heirarchy";
 
-		for (auto group_member : db->queryRowsIncrementally<std::tuple<int, int>>("SELECT permission_group_id, account_id FROM permission_group_account")) {
+		for (auto group_member : db->queryRows<std::tuple<int, int>>("SELECT permission_group_id, account_id FROM permission_group_account")) {
 			this->groups.at(std::get<0>(group_member)).addMember(std::get<1>(group_member));
 		}
 		std::cout << ", added users to groups." << std::endl;
@@ -451,7 +472,7 @@ protected:
 	}
 	void cacheAllAccounts()  {
 		std::cout << "[PermissionManager] Retreiving accounts from database... ";
-		for (auto user_t : db->queryRowsIncrementally<std::tuple<int, std::string>>("SELECT id, username FROM account")) {
+		for (auto user_t : db->queryRows<std::tuple<int, std::string>>("SELECT id, username FROM account")) {
 			std::cout << std::get<0>(user_t) << ", ";
 			this->accounts.emplace(std::get<0>(user_t), Account{
 				.id = std::get<0>(user_t),
@@ -468,9 +489,35 @@ protected:
 				this->setGroupPermission(static_cast<int>(BUILTIN_GROUPS::OWNER), permission_number, THREE_STATE_SETTING::ALLOW);
 		}
 	}
+	int getAccountRankUnlocked(int account_id) const override {
+		// if (this->owner_id && account_id == this->owner_id.value())
+		// 	return 0; // This is the most privileged rank
+		int i;
+		for (i = 0; i < this->ordered_groups.size() - 2; i++) { // 2 is subtracted because USERS and PUBLIC are hard-coded groups
+			if (this->groups.at(ordered_groups[i]).containsMember(account_id))
+				break;
+		}
+		return i;
+	}
+	int getClientRankUnlocked(const std::optional<Client>& client) const override {
+		if (!client || !client.value().account_id)
+			return this->ordered_groups.size(); // This is the least privileged rank
+		else
+			return this->getAccountRankUnlocked(client.value().account_id.value());
+	}
 
 	std::unordered_map<int, Account> accounts;
 private:
+	int getGroupRankUnlocked(int group_id) const override {
+		int rank;
+		for (rank = 0; this->ordered_groups[rank] != group_id; rank++)
+			;
+		return rank + 1; // 1 is added because the ADMINISTRATORS group is one rank below OWNER
+	}
+	void removeUserFromGroupUnlocked(int account_id, int group_id) {
+		this->groups.at(group_id).removeMember(account_id);
+		db->query<void>("DELETE FROM permission_group_account WHERE permission_group_id = $1 AND account_id = $2", group_id, account_id);
+	}
 	void saveGroupHeirarchy() const {
 		std::cout << "[PermissionManager] Saving new group heirarchy: ";
 		db->query<void>("DELETE FROM permission_group_heirarchy");
@@ -503,6 +550,9 @@ public:
 	std::vector<int> getOrderedGroupsContainingMember(int user_id) const override {
 		return this->parent_object->getOrderedGroupsContainingMember(user_id);
 	}
+	std::vector<int> getOrderedGroupsContainingMemberUnlocked(int user_id) const override {
+		return this->parent_object->getOrderedGroupsContainingMemberUnlocked(user_id);
+	}
 	int getClientRank(const std::optional<Client>& client) const override {
 		return this->parent_object->getClientRank(client);
 	}
@@ -522,6 +572,15 @@ public:
 		return this->parent_object->passPermissionForAccount(inherited_permission, permission, account_id);
 	}
 private:
+	int getClientRankUnlocked(const std::optional<Client>& client) const override {
+		return this->parent_object->getClientRankUnlocked(client);
+	}
+	int getAccountRankUnlocked(int account_id) const override {
+		return this->parent_object->getAccountRankUnlocked(account_id);
+	}
+	int getGroupRankUnlocked(int group_id) const override {
+		return this->parent_object->getGroupRankUnlocked(group_id);
+	}
 	// std::optional<int> owner_account_id;
 	PermissionObjectBase* parent_object;
 };

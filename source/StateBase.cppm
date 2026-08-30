@@ -81,16 +81,19 @@ public:
 				std::print(std::cerr, "[FuzeHttp] Session ID linked to client with id {} which does not exist", it->second.client_id);
 				return {};
 			}
-			else
+			else {
+				std::println("Client ID: {}", client_it->second.id);
+				if (client_it->second.account_id)
+					std::println("----Account ID: {}", client_it->second.account_id.value());
 				return client_it->second;
+			}
 		}
 		else
 			return {};
 	}
 	Client createClient(std::optional<int> account_id = {}) {
 		std::lock_guard<std::mutex> lock(mutex);
-		int new_client_id = db->query<int>("SELECT client_id FROM _sequences");
-		db->query<void>("UPDATE _sequences SET client_id = $1", new_client_id+1);
+		int new_client_id = db->incrementSequence("client_id");
 		std::cout << "[FuzeHttp] Creating new client with ID " << new_client_id << std::endl;
 		if (account_id) {
 			db->query<void>("INSERT INTO client(id, account_id) VALUES ($1, $2)", new_client_id, account_id.value());
@@ -132,6 +135,7 @@ public:
 		return key_base64;
 	}
 	int getGrantedGroupIdFromInvite(const std::string& invite_key_base64) const { // returns PUBLIC if none found
+		std::lock_guard<std::mutex> lock(mutex);
 		if (std::unordered_map<std::string, FuzeHttp::Invite>::const_iterator invite = this->invites.find(invite_key_base64); invite != this->invites.end())
 			return invite->second.granted_group_id;
 		else
@@ -163,6 +167,7 @@ public:
 		websocket_sessions.erase(session);
 	}
 	void setSecretFromEnvironmentVariable(const std::string& environment_variable_for_secret, bool secret_required) {
+		std::lock_guard<std::mutex> lock(mutex);
 		if (const unsigned char* secret_pointer = reinterpret_cast<const unsigned char*>(std::getenv(environment_variable_for_secret.c_str()))) {
 			char secret_base64_a[sodium_base64_ENCODED_LEN(sizeof secret_pointer, sodium_base64_VARIANT_URLSAFE)];
 			sodium_bin2base64(
@@ -230,7 +235,7 @@ protected:
 	mutable std::mutex mutex;
 private:
 	void loadSessions() {
-		for (auto session_tuple : db->queryRowsIncrementally<std::tuple<int, std::string, int>>("SELECT client_id, key, created_at FROM session")) {
+		for (auto session_tuple : db->queryRows<std::tuple<int, std::string, int>>("SELECT client_id, key, created_at FROM session")) {
 			int seconds_since_epoch = std::get<2>(session_tuple); // TODO use long instead of int
 			std::chrono::seconds sec(seconds_since_epoch);
 			std::chrono::time_point<std::chrono::system_clock> created_at(sec);
@@ -243,7 +248,7 @@ private:
 	}
 	void loadClients() {
 		// TODO clear clients which have expired or dont have an account
-		for (auto client_tuple : db->queryRowsIncrementally<std::tuple<int, int>>("SELECT id, account_id FROM client")) {
+		for (auto client_tuple : db->queryRows<std::tuple<int, int>>("SELECT id, account_id FROM client")) {
 			std::optional<int> account_id;
 			if (std::get<1>(client_tuple) != -1)
 				account_id = std::get<1>(client_tuple);

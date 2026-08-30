@@ -59,7 +59,6 @@ std::string_view getPathName(const std::string& source_URL) {
 	int decoded_url_questionmark_index = source_URL.rfind('?');
 	if (decoded_url_questionmark_index != std::string::npos)
 		path_name = path_name.substr(0, decoded_url_questionmark_index);
-	std::cout << "path_name: " << path_name << std::endl;
 	return path_name;
 }
 

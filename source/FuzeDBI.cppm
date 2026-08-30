@@ -83,8 +83,19 @@ public:
 		return output;
 	}
 #endif
+	int incrementSequence(const std::string& sequence_column) {
+		std::lock_guard<std::mutex> lock(mutex);
+		int id = queryUnlocked<int>(std::format("SELECT {} FROM _sequences", sequence_column));
+		queryUnlocked<void>(std::format("UPDATE _sequences SET {} = $1", sequence_column), id + 1);
+		return id;
+	}
 	template<class ReturnType, class... Args>
-	ReturnType query(const std::string& statement, Args... args) {
+    ReturnType query(const std::string& statement, Args... args) {
+        std::lock_guard<std::mutex> lock(mutex);
+        return queryUnlocked<ReturnType>(statement, args...);
+    }
+	template<class ReturnType, class... Args>
+	ReturnType queryUnlocked(const std::string& statement, Args... args) {
 #ifdef FUZEDBI_POSTGRES
 		PGresult* result = this->exec(statement, args...);
 		ExecStatusType status = PQresultStatus(result);
@@ -154,17 +165,16 @@ public:
 #endif
 		throw std::runtime_error("[FuzeDBI] Reached end of query function without a return value");
 	}
-	// Thread-safer than old queryRows
+	// Thread-safer than queryRowsIncrementally
 	template<class ReturnType, class... Args>
 	std::vector<ReturnType> queryRows(const std::string& statement, Args... args) {
 		std::lock_guard<std::mutex> lock(mutex);
 		std::vector<ReturnType> rows;
 		// TODO move logic from iterator to internal of this function
-		for (auto row : this->queryRowsIncrementally<ReturnType, Args...>(statement))
+		for (auto row : this->queryRowsIncrementally<ReturnType, Args...>(statement, args...))
 			rows.push_back(row);
 		return rows;
 	}
-	// Deprecated
 	template<class ReturnType, class... Args>
 	QueryIterator<ReturnType> queryRowsIncrementally(const std::string& statement, Args... args) {
 #ifdef FUZEDBI_POSTGRES
