@@ -147,18 +147,23 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 	try {
 		basic_res = controller->matchPathAndExecute(state, req);
 		std::cout << "[HttpSession] basic_res.status: " << basic_res.status << std::endl;
+		if (basic_res.error_message)
+			std::println("Error message: {}", basic_res.error_message.value());
 		if (basic_res.json || basic_res.body)
 			return FuzeHttp::buildResponse<http::string_body>(basic_res, req);
 		else if (basic_res.file) {
 			// if (!std::filesystem::is_regular_file(basic_res.file.value()))
 			// 	basic_res.file = basic_res.file.value() / "index.html";
-			std::println("Checking if file exists: {}", basic_res.file.value().string());
+			std::print("Checking if file exists: {}", basic_res.file.value().string());
 			if (!std::filesystem::exists(basic_res.file.value())) {
+				std::println(" - NOT FOUND");
 				error_text = std::format("Target not found: `{}`", std::string(req.target()));
 				return FuzeHttp::buildResponse<http::string_body>(FuzeHttp::Response{.status=http::status::not_found, .error_message=error_text, .body=error_text}, req);
 			}
-			else
+			else {
+				std::println(" - it exists :D");
 				return FuzeHttp::buildResponse<http::file_body>(basic_res, req);
+			}
 		}
 		else
 			return FuzeHttp::buildResponse<http::empty_body>(basic_res, req);

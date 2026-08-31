@@ -92,9 +92,9 @@ public:
 			return {};
 	}
 	Client createClient(std::optional<int> account_id = {}) {
-		std::lock_guard<std::mutex> lock(mutex);
 		int new_client_id = db->incrementSequence("client_id");
 		std::cout << "[FuzeHttp] Creating new client with ID " << new_client_id << std::endl;
+		std::lock_guard<std::mutex> lock(mutex);
 		if (account_id) {
 			db->query<void>("INSERT INTO client(id, account_id) VALUES ($1, $2)", new_client_id, account_id.value());
 			this->accounts.at(account_id.value()).client_id = new_client_id;
@@ -193,6 +193,7 @@ public:
 		auto it = this->clients.find(client_id);
 		if (it == this->clients.end())
 			throw std::runtime_error(std::format("Account {} refers to Client {} which does not exist", account_id, client_id));
+		std::println("From account {} found client {}", account_id, it->second.id);
 		return it->second;
 	}
 	// const std::unordered_map<std::string, std::string> busted_target_to_target;
@@ -248,15 +249,10 @@ private:
 	}
 	void loadClients() {
 		// TODO clear clients which have expired or dont have an account
-		for (auto client_tuple : db->queryRows<std::tuple<int, int>>("SELECT id, account_id FROM client")) {
-			std::optional<int> account_id;
-			if (std::get<1>(client_tuple) != -1)
-				account_id = std::get<1>(client_tuple);
-			else
-				account_id = {};
+		for (auto client_tuple : db->queryRows<std::tuple<int, std::optional<int>>>("SELECT id, account_id FROM client")) {
 			Client client{
 				.id = std::get<0>(client_tuple),
-				.account_id = account_id
+				.account_id = std::get<1>(client_tuple)
 			};
 			this->clients.emplace(std::get<0>(client_tuple), std::move(client));
 		}
