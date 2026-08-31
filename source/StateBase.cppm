@@ -17,6 +17,7 @@ export module FuzeHttp.State;
 import FuzeDBI;
 import FuzeHttp.Core;
 import FuzeHttp.Migrations;
+import FuzeHttp.Secret;
 import FuzeHttp.Utils;
 // export import :WebsocketSession;
 // import State_WebsocketSession_declarations;
@@ -156,7 +157,7 @@ public:
 		std::cout << "[shared_state] Cleared " << initial_number_of_sessions - this->sessions.size() << " expired sessions." << std::endl;
 	}
 	const std::filesystem::path& getDocumentRoot() const { return document_root; }
-	const std::string getSecret() const { return this->secret_base64; }
+	const Secret* secret() const { return unique_secret.get(); }
 	void websocketJoin (FuzeHttp::WebsocketSession* session) {
 		std::lock_guard<std::mutex> lock(mutex);
 		websocket_sessions.insert(session);
@@ -167,15 +168,11 @@ public:
 		websocket_sessions.erase(session);
 	}
 	void setSecretFromEnvironmentVariable(const std::string& environment_variable_for_secret, bool secret_required) {
+		std::print("Getting secret... ");
 		std::lock_guard<std::mutex> lock(mutex);
-		if (const unsigned char* secret_pointer = reinterpret_cast<const unsigned char*>(std::getenv(environment_variable_for_secret.c_str()))) {
-			char secret_base64_a[sodium_base64_ENCODED_LEN(sizeof secret_pointer, sodium_base64_VARIANT_URLSAFE)];
-			sodium_bin2base64(
-				secret_base64_a, sizeof secret_base64_a,
-				secret_pointer, sizeof secret_pointer,
-				sodium_base64_VARIANT_URLSAFE
-			);
-			this->secret_base64 = secret_base64_a;
+		if (const char* secret_pointer = std::getenv(environment_variable_for_secret.c_str())) {
+			this->unique_secret = std::make_unique<FuzeHttp::Secret>(secret_pointer);
+			std::println("Saved.");
 		}
 		else if (secret_required)
 			throw std::runtime_error(std::format("Environment variable {} not found. Specify `environment_variable_for_secret` OR set secret_required=false", environment_variable_for_secret));
@@ -258,7 +255,7 @@ private:
 		}
 	}
 	const std::chrono::duration<unsigned int> authorization_token_lifespan = std::chrono::days(365);
-	std::string secret_base64;
+	std::unique_ptr<FuzeHttp::Secret> unique_secret;
 	// friend class FuzeHttp::Server;
 	friend class WebsocketSession;
 }; // class State

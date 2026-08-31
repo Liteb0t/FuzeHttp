@@ -20,6 +20,7 @@ target_sources(FuzeHttp
       PermissionSetting.cppm
       PermissionCollection.cppm
       PermissionObject.cppm
+      Secret.cppm
       StateBase.cppm
     FILE_SET headers
     TYPE HEADERS
