@@ -13,6 +13,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread") # Required on FreeBSD
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1) # writes compile_commands.json for clangd to use
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(SODIUM_DISABLE_TESTS ON)
+set(BUILD_SHARED_LIBS OFF)
 option(FUZEHTTP_EXAMPLE "Build the FuzeHttp example project (may conflict with existing projects)" ON)
 option(FUZEDBI_USE_POSTGRES "Use PostgreSQL interface instead of SQLite" OFF)
 include(GNUInstallDirs)
@@ -21,7 +22,7 @@ include(GNUInstallDirs)
 cmake_policy(SET CMP0167 NEW) # use BoostConfig.cmake instead of legacy FindBoost, for CMake < 3.30
 find_package(Boost 1.88 COMPONENTS json program_options REQUIRED)
 
-add_library(FuzeHttp)
+add_library(FuzeHttp STATIC)
 
 if(FUZEDBI_USE_POSTGRES)
   message("FuzeDBI will use PostgreSQL interface")
