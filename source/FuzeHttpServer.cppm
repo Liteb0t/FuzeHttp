@@ -469,7 +469,6 @@ public:
 	}
 
 	void run() {
-		state->start();
 		auto migrations = state->addMigrations();
 		std::println("Server version:   \t{}", this->current_version);
 		if (database_version) {
@@ -480,6 +479,7 @@ public:
 		}
 		else
 			std::println("Database version: \tNot applicable (database newly created)");
+		state->start();
 
 		auto address = boost::asio::ip::make_address("127.0.0.1");
 		// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
