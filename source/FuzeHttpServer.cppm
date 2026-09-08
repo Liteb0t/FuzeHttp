@@ -205,7 +205,7 @@ public:
 
 		std::optional<std::string> config_file, data_directory_config, media_directory_config, sqlite_database_file_config;
 		// Check command line arguments.
-		unsigned short server_port, postgresql_port;
+		unsigned short postgresql_port;
 		std::string config_file_str, data_directory_str, media_directory_str, database_engine, environment_variable_for_secret, sqlite_database_file_str, postgresql_uri, postgresql_user, postgresql_host, thumbnail_file_format, postgresql_database_name;
 		unsigned int threads, thumbnail_size, parser_body_size_limit_mb;
 		bool postgresql_use_uri, secret_required;
@@ -539,7 +539,7 @@ public:
 	std::filesystem::path document_root;
 	// std::filesystem::path media_location;
 	boost::program_options::variables_map variable_map;
-	const unsigned short server_port = 8300;
+	unsigned short server_port = 8300;
 	std::optional<std::string> database_version;
 	const std::string current_version;
 private:
