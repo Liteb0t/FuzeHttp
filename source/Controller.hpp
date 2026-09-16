@@ -25,6 +25,8 @@ public:
 		for (int id : all_views)
 			views.at(id)->clearResolvedObject();
 
+		std::optional<Client> client = state->getClientIfExists(req);
+
 		std::string decoded_url = FuzeHttp::getDecodedURL(req.target());
 		std::string_view path_name = FuzeHttp::getPathName(decoded_url);
 		std::println("[Controller] {} {}", std::string(req.method_string()), path_name);
@@ -47,7 +49,7 @@ public:
 				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index, state) == false;
 			});
 			for (int view_id : matched_views) {
-				auto resolve_response = this->views.at(view_id)->resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(section, section_index, state);
+				auto resolve_response = this->views.at(view_id)->resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(section, section_index, state, client);
 				if (!resolve_response)
 					return resolve_response.error();
 			}

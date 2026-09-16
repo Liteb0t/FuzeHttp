@@ -96,7 +96,7 @@ public:
 	virtual size_t getPathSize() const = 0;
 	virtual Response executeView(StateType state, Request& req) = 0;
 	virtual bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index, StateType state) = 0;
-	virtual std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state) = 0;
+	virtual std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state, const std::optional<Client>& client) = 0;
 	void clearResolvedObject() { previous_resolved_object = std::any{}; }
 	std::any previous_resolved_object; // from Resolver
 	bool is_wild = false;
@@ -257,7 +257,7 @@ public:
 			throw std::runtime_error(std::format("Variant {} is not a path arg", vari.index()));
 	}
 	// call only AFTER asserting attemptPathMatch(index ...) == true
-	std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state) override {
+	std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state, const std::optional<Client>& client) override {
 		std::print("Resolving resolver...");
 		index += this->path_starts_at;
 		if (index >= this->all_args.size())
@@ -265,7 +265,7 @@ public:
 		const ArgVariant& vari = this->all_args[index];
 		if (vari.index() == VARIANT::RESOLVER) {
 			auto resolver = std::get<std::shared_ptr<ResolverBase<StateType>>>(vari);
-			std::expected<std::any, Response> resolved = resolver->resolve(state, this->previous_resolved_object, section);
+			std::expected<std::any, Response> resolved = resolver->resolve(state, this->previous_resolved_object, section, client);
 			if (!resolved)
 				return std::unexpected(resolved.error());
 			else {
