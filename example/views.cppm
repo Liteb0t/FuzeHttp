@@ -29,10 +29,17 @@ FuzeHttp::Response showMainPage(shared_state* state, FuzeHttp::Request req) {
 	};
 }
 
-FuzeHttp::Response getTestObject(shared_state* state, FuzeHttp::Request req, TestObject* object) {
+FuzeHttp::Response getTestObject(shared_state* state, FuzeHttp::Request req, std::shared_ptr<TestObject> object) {
 	return FuzeHttp::Response{
 		.status = http::status::ok,
 		.body = object->name
+	};
+}
+
+FuzeHttp::Response getChildObject(shared_state* state, FuzeHttp::Request req, std::shared_ptr<TestObject> object, TestChildObject* child_object) {
+	return FuzeHttp::Response{
+		.status = http::status::ok,
+		.body = child_object->name
 	};
 }
 

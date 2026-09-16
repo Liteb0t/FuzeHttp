@@ -30,24 +30,47 @@ inline std::expected<int, std::string> parseSection(std::string_view section) {
 template<class StateType>
 struct ResolverBase {
 	virtual ~ResolverBase() = default;
-	virtual std::expected<std::any, FuzeHttp::Response> resolve(StateType state, std::string_view section) const = 0;
+	virtual std::expected<std::any, FuzeHttp::Response> resolve(StateType state, const std::any& parent_object, std::string_view section) const = 0;
 };
 
-template<class StateType, class Object, typename Key = std::string>
+template<class StateType, class Object, typename Key, class ParentObject = void>
 struct Resolver : ResolverBase<StateType> {
 	using object_type = Object;
 	std::expected<Key, std::string> parse(std::string_view section) const {
 		return parseSection<Key>(section); // TODO allow user to define his/her own parser
 	}
+	// TODO ensure returned success value matches type Object (to avoid bad any_cast exception)
 	virtual std::expected<std::any, FuzeHttp::Response> fetch(StateType state, Key key) const = 0;
-	std::expected<std::any, FuzeHttp::Response> resolve(StateType state, std::string_view section) const final {
+	std::expected<std::any, FuzeHttp::Response> resolve(StateType state, const std::any& parent_object, std::string_view section) const final {
 		if (auto key = parse(section); !key)
-			return FuzeHttp::Response{.status=http::status::bad_request, .error_message=key.error()};
+			return std::unexpected(FuzeHttp::Response{.status=http::status::bad_request, .error_message=key.error()});
+		else
+			return fetch(state, key.value());
+	}
+};
+
+template<class StateType, class Object, typename Key, class ParentObject>
+requires (!std::is_void_v<ParentObject>)
+struct Resolver<StateType, Object, Key, ParentObject> : ResolverBase<StateType> {
+	using object_type = Object;
+	std::expected<Key, std::string> parse(std::string_view section) const {
+		return parseSection<Key>(section); // TODO allow user to define his/her own parser
+	}
+	virtual std::expected<std::any, FuzeHttp::Response> fetch(StateType state, Key key, ParentObject parent_object) const = 0;
+	std::expected<std::any, FuzeHttp::Response> resolve(StateType state, const std::any& parent_object, std::string_view section) const final {
+		if (auto key = parse(section); !key)
+			return std::unexpected(FuzeHttp::Response{.status=http::status::bad_request, .error_message=key.error()});
 		else {
-			if (auto result = fetch(state, key.value()); !result)
-				return std::unexpected(result.error());
+			// Pointer overload: returns nullptr on mismatch instead of throwing.
+			const ParentObject* parent_value = std::any_cast<ParentObject>(&parent_object);
+			if (!parent_value) {
+				return std::unexpected(FuzeHttp::Response{
+					.status = http::status::internal_server_error,
+					.error_message = std::format("ParentObject not resolved for section `{}`", section)
+				});
+			}
 			else
-				return std::any_cast<Object>(result.value());
+				return fetch(state, key.value(), *parent_value);
 		}
 	}
 };

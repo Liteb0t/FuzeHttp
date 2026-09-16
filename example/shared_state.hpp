@@ -31,7 +31,11 @@ struct StateConfig {
 	std::string server_name;
 };
 struct TestObject {
+	int child_object_id;
 	std::string name = "this is a test object.";
+};
+struct TestChildObject {
+	std::string name = "this is a child object.";
 };
 enum struct PERMISSION : int {
 	MANAGE_PERMISSIONS,
@@ -46,7 +50,13 @@ enum struct PERMISSION : int {
 // Represents the shared server state
 class shared_state : public FuzeHttp::StateBase {
 public:
-	shared_state(FuzeDBI::Connection* db) : StateBase(db) {}
+	shared_state(FuzeDBI::Connection* db) : StateBase(db) {
+		for (int i = 0; i < 10; ++i) {
+			// objects is std::unordered_map<int, std::shared_ptr<TestObject>>
+			this->objects.emplace(i, std::make_shared<TestObject>(TestObject{.child_object_id = i}));
+			this->child_objects.emplace(i, std::make_shared<TestChildObject>());
+		}
+	}
 	// shared_state(StateConfig config) : Stateconfig(config) {}
 	// shared_state(FuzeDBI::Connection* fuze_database_interface, std::filesystem::path document_root, std::filesystem::path media_location_relative, StateConfig config, std::unordered_map<std::string, std::string>&& busted_target_to_target, std::unordered_set<std::string>&& files_generated_from_templates);
 	StateConfig config;
@@ -66,7 +76,8 @@ public:
 	void clearWebsockets();
 
 	const std::filesystem::path& getMediaLocation() const { return media_location; }
-	std::unordered_map<int, TestObject> objects = {{1, TestObject()}, {2, TestObject()}, {10, TestObject()}};
+	std::unordered_map<int, std::shared_ptr<TestObject>> objects;
+	std::unordered_map<int, std::shared_ptr<TestChildObject>> child_objects;
 	// const std::filesystem::path& getProgramLocation() const { return program_location; }
 private:
 	// const std::filesystem::path program_location;

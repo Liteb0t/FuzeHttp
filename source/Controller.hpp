@@ -22,6 +22,8 @@ public:
 	Response matchPathAndExecute(StateType state, Request& req) {
 		if (!req.target().starts_with('/'))
 			return Response{.status = http::status::bad_request};
+		for (int id : all_views)
+			views.at(id)->clearResolvedObject();
 
 		std::string decoded_url = FuzeHttp::getDecodedURL(req.target());
 		std::string_view path_name = FuzeHttp::getPathName(decoded_url);

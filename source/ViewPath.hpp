@@ -97,6 +97,8 @@ public:
 	virtual Response executeView(StateType state, Request& req) = 0;
 	virtual bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index, StateType state) = 0;
 	virtual std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state) = 0;
+	void clearResolvedObject() { previous_resolved_object = std::any{}; }
+	std::any previous_resolved_object; // from Resolver
 	bool is_wild = false;
 };
 
@@ -258,13 +260,18 @@ public:
 	std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state) override {
 		std::print("Resolving resolver...");
 		index += this->path_starts_at;
+		if (index >= this->all_args.size())
+			return {};
 		const ArgVariant& vari = this->all_args[index];
 		if (vari.index() == VARIANT::RESOLVER) {
 			auto resolver = std::get<std::shared_ptr<ResolverBase<StateType>>>(vari);
-			std::expected<std::any, Response> resolved = resolver->resolve(state, section);
+			std::expected<std::any, Response> resolved = resolver->resolve(state, this->previous_resolved_object, section);
 			if (!resolved)
 				return std::unexpected(resolved.error());
-			this->setArg(pattern_position_to_view_arg_index[index], resolved.value());
+			else {
+				this->previous_resolved_object = resolved.value();
+				this->setArg(pattern_position_to_view_arg_index[index], resolved.value());
+			}
 		}
 		std::println("Done.");
 		return {};
@@ -284,7 +291,7 @@ private:
 				if (auto* obj = std::any_cast<std::remove_reference_t<decltype(entry)>>(&value))
 					entry = *obj;
 				else
-					throw std::runtime_error(std::format("std::any_cast failed for index {}", index));
+					throw std::runtime_error(std::format("std::any_cast failed for index {}", I));
 			}
 			// Shoutouts to David G https://stackoverflow.com/a/79897965/18658154
 			else if constexpr (requires{ entry = value; }) {
