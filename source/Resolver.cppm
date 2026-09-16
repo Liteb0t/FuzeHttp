@@ -43,8 +43,12 @@ struct Resolver : ResolverBase<StateType> {
 	std::expected<std::any, FuzeHttp::Response> resolve(StateType state, std::string_view section) const final {
 		if (auto key = parse(section); !key)
 			return FuzeHttp::Response{.status=http::status::bad_request, .error_message=key.error()};
-		else
-			return fetch(state, key.value());
+		else {
+			if (auto result = fetch(state, key.value()); !result)
+				return std::unexpected(result.error());
+			else
+				return std::any_cast<Object>(result.value());
+		}
 	}
 };
 }

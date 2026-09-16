@@ -41,10 +41,15 @@ public:
 				section = path_name.substr(location_start_bound);
 			else
 				section = path_name.substr(location_start_bound, location_end_bound - location_start_bound);
-			std::erase_if(matched_views, [this, &req, &section, section_index](const int view_id){
-				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index) == false;
+			std::erase_if(matched_views, [this, &req, &section, section_index, &state](const int view_id){
+				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index, state) == false;
 			});
-			// std::cout << '.' << std::endl;
+			for (int view_id : matched_views) {
+				auto resolve_response = this->views.at(view_id)->resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(section, section_index, state);
+				if (!resolve_response)
+					return resolve_response.error();
+			}
+			std::cout << '.' << std::endl;
 			if (matched_views.size() == 0)
 				break;
 			else {

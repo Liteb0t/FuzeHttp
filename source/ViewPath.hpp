@@ -95,7 +95,8 @@ class Path {
 public:
 	virtual size_t getPathSize() const = 0;
 	virtual Response executeView(StateType state, Request& req) = 0;
-	virtual bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index) = 0;
+	virtual bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index, StateType state) = 0;
+	virtual std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state) = 0;
 	bool is_wild = false;
 };
 
@@ -107,6 +108,7 @@ class ViewPath : public Path<StateType> {
 	// using FilteredTypes = typename Filter<TypeList<AllArgs...>, IsExtraArg>::type;
 	using FuncPtr = typename MakeFuncPtr<StateType, HandlerArgs>::type;
 	using ArgTuple = typename MakeArgTuple<HandlerArgs>::type;
+	enum VARIANT : int { CHARS = 0, INT, STRING, CLIENT, RESOLVER};
 	using ArgVariant = std::variant<const char*, int, std::string, Client, std::shared_ptr<ResolverBase<StateType>>>;
 	// using ExtrasTuple = typename MakeArgTuple<FilteredExtraTypes>::type;
 
@@ -202,7 +204,7 @@ public:
 	size_t getPathSize() const override {
 		return this->all_args.size() - this->path_starts_at;
 	}
-	bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index) override {
+	bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index, StateType state) override {
 		index += this->path_starts_at;
 		// std::cout << "Path starts at " << this->path_starts_at << std::endl;
 		if (req_method != this->req_method)
@@ -217,13 +219,13 @@ public:
 		// std::cout << ", getting variant";
 		const ArgVariant& vari = this->all_args[index];
 
-		// std::cout << "Section: \"" << section << "\"";
-		if (vari.index() == 0) { // Not a view arg
+		std::print("Section: \"{}\"", section);
+		if (vari.index() == VARIANT::CHARS) { // Not a view arg
 			std::string str = std::string(std::get<const char*>(vari));
 			// std::cout << ", is const \"" << str << '"';
 			return str == section;
 		}
-		else if (vari.index() == 1) { // Integer arg
+		else if (vari.index() == VARIANT::INT) { // Integer arg
 			int value;
 			std::from_chars_result res = std::from_chars(section.data(), section.data() + section.size(), value);
 			if (res.ec == std::errc()) {
@@ -240,14 +242,32 @@ public:
 				return false;
 			}
 		}
-		else if (vari.index() == 2) { // String arg
+		else if (vari.index() == VARIANT::STRING) { // String arg
 			// std::cout << ", Is string \"" << section << '"';
 			this->setArg(pattern_position_to_view_arg_index[index], section);
 			// this->setArg<(size_t)0, Functor, int, pattern_position_to_view_arg_index[index]>(pattern_position_to_view_arg_index[index], Functor(), section);
 			return true;
 		}
+		else if (vari.index() == VARIANT::RESOLVER) {
+			return true;
+		}
 		else
 			throw std::runtime_error(std::format("Variant {} is not a path arg", vari.index()));
+	}
+	// call only AFTER asserting attemptPathMatch(index ...) == true
+	std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state) override {
+		std::print("Resolving resolver...");
+		index += this->path_starts_at;
+		const ArgVariant& vari = this->all_args[index];
+		if (vari.index() == VARIANT::RESOLVER) {
+			auto resolver = std::get<std::shared_ptr<ResolverBase<StateType>>>(vari);
+			std::expected<std::any, Response> resolved = resolver->resolve(state, section);
+			if (!resolved)
+				return std::unexpected(resolved.error());
+			this->setArg(pattern_position_to_view_arg_index[index], resolved.value());
+		}
+		std::println("Done.");
+		return {};
 	}
 private:
 	// https://stackoverflow.com/a/28440573/18658154
@@ -259,8 +279,15 @@ private:
 	inline typename std::enable_if<I < SizeOfT<HandlerArgs>::value, void>::type
 	setArg(int index, T value) {
 		if (index == 0) {
+			auto& entry = std::get<I>(this->view_args);
+			if constexpr (std::is_same_v<std::remove_cvref_t<T> /* not sure if remove cv/ref is necessary but Claude suggested it*/, std::any>) {
+				if (auto* obj = std::any_cast<std::remove_reference_t<decltype(entry)>>(&value))
+					entry = *obj;
+				else
+					throw std::runtime_error(std::format("std::any_cast failed for index {}", index));
+			}
 			// Shoutouts to David G https://stackoverflow.com/a/79897965/18658154
-			if constexpr (auto& entry = std::get<I>(this->view_args); requires{ entry = value; }) {
+			else if constexpr (requires{ entry = value; }) {
 				entry = value;
 			}
 		}
