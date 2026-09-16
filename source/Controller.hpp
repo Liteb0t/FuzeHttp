@@ -12,9 +12,7 @@ template<typename StateType>
 class Controller {
 public:
 	template</* template<typename...> class RequiresT, class... RequiresArgs, */typename... Types>
-	constexpr void addPattern(http::verb req_method, typename MakeFuncPtr<StateType, typename Filter<TypeList<Types...>, IsViewArg>::type>::type view,/* Requires<RequiresArgs...> options = {}, */Types... args) {
-	// constexpr void addPattern(http::verb req_method, View<> view, Options options, Types... args) {
-		// ViewPath<Types...> vp(view, std::move(args)...);
+	void addPattern(http::verb req_method, typename MakeFuncPtr<StateType, typename GetHandlerArgs<TypeList<Types...>, ToHandlerArg>::type>::type view,/* Requires<RequiresArgs...> options = {}, */Types... args) {
 		all_views.emplace(id_counter);
 		views.emplace(id_counter, new ViewPath<StateType, /*RequiresArgs..., */Types...>(req_method, view, std::move(args)...));
 		// std::cout << "views[" << id_counter << "] length: " << views.at(id_counter)->path.size() << std::endl;

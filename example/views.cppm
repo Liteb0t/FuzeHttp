@@ -29,6 +29,13 @@ FuzeHttp::Response showMainPage(shared_state* state, FuzeHttp::Request req) {
 	};
 }
 
+FuzeHttp::Response getTestObject(shared_state* state, FuzeHttp::Request req, TestObject* object) {
+	return FuzeHttp::Response{
+		.status = http::status::ok,
+		.body = object->name
+	};
+}
+
 FuzeHttp::Response createGroup(shared_state* state, FuzeHttp::Request req) {
 	std::optional<Client> client = state->getClientIfExists(req);
 	std::print("Client rank: {}", state->getClientRank(client));

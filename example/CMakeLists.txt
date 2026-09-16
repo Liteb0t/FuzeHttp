@@ -13,6 +13,7 @@ target_sources(example
     urls.cpp
   PUBLIC FILE_SET CXX_MODULES
   FILES
+    resolvers.cppm
     views.cppm
     views_registration.cppm
 )

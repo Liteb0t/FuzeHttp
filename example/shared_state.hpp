@@ -30,6 +30,9 @@ class WebsocketSession;
 struct StateConfig {
 	std::string server_name;
 };
+struct TestObject {
+	std::string name = "this is a test object.";
+};
 enum struct PERMISSION : int {
 	MANAGE_PERMISSIONS,
 	VIEW_THREAD,
@@ -63,6 +66,7 @@ public:
 	void clearWebsockets();
 
 	const std::filesystem::path& getMediaLocation() const { return media_location; }
+	std::unordered_map<int, TestObject> objects = {{1, TestObject()}, {2, TestObject()}, {10, TestObject()}};
 	// const std::filesystem::path& getProgramLocation() const { return program_location; }
 private:
 	// const std::filesystem::path program_location;

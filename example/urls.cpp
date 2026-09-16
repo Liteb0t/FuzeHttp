@@ -7,11 +7,13 @@ import FuzeHttp.Example.Views_registration;
 // #include "views.hpp"
 // #include "views_registration.hpp"
 import FuzeHttp.State;
+import FuzeHttp.Example.Resolvers;
 
 using namespace FuzeHttp;
 using namespace FuzeHttp::Example;
 using namespace http;
 
+namespace FuzeHttp {
 template<>
 void addURLsToController<shared_state>(FuzeHttp::Controller<shared_state*>* controller) {
 	// C-style strings are immutable parts of the URL, and strings/ints are variables passed into the view.
@@ -22,6 +24,7 @@ void addURLsToController<shared_state>(FuzeHttp::Controller<shared_state*>* cont
 	controller->addPattern(verb::delete_, removeMemberFromGroup,		"api", "group", int(), "member", int());
 	controller->addPattern(verb::get, getGroupMembers,					"api", "group", int(), "members");
 	controller->addPattern(verb::get, getGroups,						"api", "groups");
+	controller->addPattern(verb::get, getTestObject, 					"test", ObjectResolver{});
 	controller->addPattern(verb::put, setGroupHeirarchy,				"api", "group_heirarchy");
 	controller->addPattern(verb::get, getServerPermissions,				"api", "server", "permissions");
 	controller->addPattern(verb::post, addServerGroupPermission,		"api", "server", "permissions", "group", int());
@@ -41,4 +44,5 @@ void addURLsToController<shared_state>(FuzeHttp::Controller<shared_state*>* cont
 	controller->addPattern(verb::post, login, 							"registration", "login");
 	controller->addPattern(verb::post, logout,							"registration", "logout");
 	controller->addPattern(verb::post, changePassword,  				"registration", "change_password");
+}
 }
