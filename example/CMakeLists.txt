@@ -10,10 +10,10 @@ target_sources(example
   PRIVATE
     main.cpp
     shared_state.cpp
-    urls.cpp
   PUBLIC FILE_SET CXX_MODULES
   FILES
     resolvers.cppm
+    urls.cppm
     views.cppm
     views_registration.cppm
 )

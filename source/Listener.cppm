@@ -2,6 +2,7 @@
 // Fuze Human-oriented License v1
 module;
 #include "beast.hpp"
+#include "Controller.hpp"
 // #include "FuzeHttpState.hpp"
 // #include "HttpSession.hpp"
 #include <boost/asio.hpp>
@@ -9,7 +10,6 @@ module;
 #include <iostream>
 #include <memory>
 #include <string>
-#include "urls.hpp"
 export module FuzeHttp.Listener;
 import FuzeHttp.HttpSession;
 
@@ -18,9 +18,8 @@ export namespace FuzeHttp {
 template<class StateType, class WebsocketSessionType>
 class Listener : public std::enable_shared_from_this<Listener<StateType, WebsocketSessionType>> {
 public:
-	Listener(boost::asio::io_context& io_context, boost::asio::ip::tcp::endpoint endpoint, StateType* state)
-			: io_context_(io_context) , acceptor_(io_context) , state_(state), controller(new FuzeHttp::Controller<StateType*>()) {
-		addURLsToController(this->controller);
+	Listener(boost::asio::io_context& io_context, boost::asio::ip::tcp::endpoint endpoint, StateType* state, Controller<StateType*>* controller)
+			: io_context_(io_context) , acceptor_(io_context) , state_(state), controller(controller) {
 		beast::error_code ec;
 
 		// Open the acceptor

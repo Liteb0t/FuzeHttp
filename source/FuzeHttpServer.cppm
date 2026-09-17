@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Fuze.page
 // Fuze Human-oriented License v1
 module;
-// #include "Listener.hpp"
+#include "Controller.hpp"
 #include <boost/asio.hpp>
 #define BOOST_DLL_USE_STD_FS
 #include <boost/algorithm/string/replace.hpp>
@@ -491,7 +491,8 @@ public:
 		std::make_shared<Listener<StateType, WebsocketSessionType>>(
 			io_context,
 			boost::asio::ip::tcp::endpoint{address, server_port},
-			state.get()
+			state.get(),
+			&controller
 		)->run();
 
 		// Capture SIGINT and SIGTERM to perform a clean shutdown
@@ -535,6 +536,7 @@ public:
 		// delete database_connection;
 	}
 	FuzeDBI::Connection* db;
+	FuzeHttp::Controller<StateType*> controller;
 	std::unique_ptr<StateType> state;
 	// StateType state = nullptr;
 	ProgramDirectories program_directories;

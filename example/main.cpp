@@ -15,6 +15,7 @@
 import FuzeHttp.PermissionObject;
 import FuzeHttp.Server;
 import FuzeHttp.Utils;
+import FuzeHttp.Example.Urls;
 import FuzeDBI;
 
 const std::string current_version = "0.1.4";
@@ -53,9 +54,10 @@ int main(int argc, char* argv[]) {
 		return return_code;
 	std::println("Finished processing options... adding confuig...");
 	server.state->config = state_config;
+	std::println("Finished adding config... adding URLs...");
+	addURLsToController(&server.controller);
 	std::println("Running server...");
 	server.run();
-
 
 	return EXIT_SUCCESS;
 }

@@ -10,11 +10,12 @@ import FuzeHttp.Core;
 namespace FuzeHttp {
 template<typename StateType>
 class Controller {
+	class EasyPatternAdder;
 public:
-	template</* template<typename...> class RequiresT, class... RequiresArgs, */typename... Types>
-	void addPattern(http::verb req_method, typename MakeFuncPtr<StateType, typename GetHandlerArgs<TypeList<Types...>, ToHandlerArg>::type>::type view,/* Requires<RequiresArgs...> options = {}, */Types... args) {
+	template<typename... Types>
+	void addPattern(http::verb req_method, typename MakeFuncPtr<StateType, typename GetHandlerArgs<TypeList<Types...>, ToHandlerArg>::type>::type view, Types... args) {
 		all_views.emplace(id_counter);
-		views.emplace(id_counter, new ViewPath<StateType, /*RequiresArgs..., */Types...>(req_method, view, std::move(args)...));
+		views.emplace(id_counter, new ViewPath<StateType, Types...>(req_method, view, std::move(args)...));
 		// std::cout << "views[" << id_counter << "] length: " << views.at(id_counter)->path.size() << std::endl;
 		id_counter++;
 	}
@@ -53,7 +54,6 @@ public:
 				if (!resolve_response)
 					return resolve_response.error();
 			}
-			std::cout << '.' << std::endl;
 			if (matched_views.size() == 0)
 				break;
 			else {
@@ -96,7 +96,20 @@ public:
 		// 	return FuzeHttp::Response{.status = http::status::ok, .file = std::filesystem::canonical(path_name.substr(1), state->document_root)};
 		// }
 	}
+	EasyPatternAdder addPatterns() { return EasyPatternAdder(this); }
 private:
+	class EasyPatternAdder {
+	public:
+		EasyPatternAdder(Controller* controller) : controller(controller) {}
+
+		template<typename... Types>
+		EasyPatternAdder& operator()(http::verb req_method, typename MakeFuncPtr<StateType, typename GetHandlerArgs<TypeList<Types...>, ToHandlerArg>::type>::type view, Types... args) {
+			controller->addPattern(req_method, view, std::move(args)...);
+			return *this;
+		}
+	private:
+		Controller* controller;
+	};
 	// StateType state;
 	std::unordered_set<int> all_views;
 	std::unordered_map<int, Path<StateType>*> views;

@@ -221,7 +221,7 @@ public:
 		// std::cout << ", getting variant";
 		const ArgVariant& vari = this->all_args[index];
 
-		std::print("Section: \"{}\"", section);
+		// std::print("Section: \"{}\"", section);
 		if (vari.index() == VARIANT::CHARS) { // Not a view arg
 			std::string str = std::string(std::get<const char*>(vari));
 			// std::cout << ", is const \"" << str << '"';
@@ -258,7 +258,7 @@ public:
 	}
 	// call only AFTER asserting attemptPathMatch(index ...) == true
 	std::expected<void, Response> resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(std::string_view section, size_t index, StateType state, const std::optional<Client>& client) override {
-		std::print("Resolving resolver...");
+		// std::print("Resolving resolver...");
 		index += this->path_starts_at;
 		if (index >= this->all_args.size())
 			return {};
@@ -273,7 +273,7 @@ public:
 				this->setArg(pattern_position_to_view_arg_index[index], resolved.value());
 			}
 		}
-		std::println("Done.");
+		// std::println("Done.");
 		return {};
 	}
 private:

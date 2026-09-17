@@ -30,6 +30,5 @@ target_sources(FuzeHttp
     FILES
       Controller.hpp
       Request.hpp
-      urls.hpp
       ViewPath.hpp
 )
