@@ -1,7 +1,6 @@
 <h1><img src="https://fuze.page/static/fuze-min-hover.png" style="max-width: 100%;" width="94" height="45" alt="FUZE"> Http</h1>
 <p>
-FuzeHttp<sup>[<a href="https://github.com/Liteb0t/FuzeHttp">github</a>]</sup> is a web framework written in C++23, designed for modern REST API-based services.<br>
-This is the engine driving <a href="https://fuze.page/software/mediaboard">Fuze Mediaboard</a> and is developed in tandem with it.
+FuzeHttp<sup>[<a href="https://github.com/Liteb0t/FuzeHttp">github</a>]</sup> is a web framework written in C++23, designed for modern REST API-based services. It is gradually being developed in an ad-hoc way, to meet the growing needs of <a href="https://fuze.page/software/mediaboard">Fuze Mediaboard</a>.
 </p>
 <h2>Building the example project</h2>
 The easiest way to get started is to set up the example project, and then work from there. If you have deployed Fuze Mediaboard before, these steps will be very familiar.
@@ -31,12 +30,72 @@ The easiest way to get started is to set up the example project, and then work f
 	After registering the owner account, you can now interact with the server.<br>
 	<i>If you ever forget the password, you can simply run the create_owner command again. Note that it will not be the same account.</i>
 </p>
-<h2>Architecture</h2>
-<p>
-This framework has not been designed in advance. It is gradually being developed in an ad-hoc way, to meet the growing needs of Fuze Mediaboard. In this sense, this project is in the spirit of C++.
-</p>
-<h3>Configuration</h3>
+<h2>Program options</h2>
 <p>
 Options can be defined in <code>config.ini</code> or passed in at runtime. Run the server with <code>--help</code> to see all available options. Some options are built-in, such as <code>threads</code> and <code>environment_variable_for_secret</code>.<br><br>
-Additional options can be defined.
+Additional options can be defined. The container for additional options is instantiated in this way:<br>
+<code>FuzeHttp::ProgramOptions options;</code><br>
+We can see the three option types inherited from FuzeHttp::ProgramOptionBase in the example project's addProgramOptions function:<br>
+<code><pre>
+options->addOptions()
+	(new ProgramOption&lt;std::string>("favicon_url", "https://fuze.page/favicon.ico"))
+	(new ProgramConstant("test_program_constant", 73))
+	(new ProgramOptionPtr("site_name", &state_config->server_name, {.default_value=std::string("FuzeHttp Example")}));
+</pre></code><br>
+These classes accept a template argument <code>OptionType</code>, which can be any type with an <code>operator>></code> overload. Here is a description of the three option types:
+<table>
+	<tr><th>class</th><th>description</th></tr>
+	<tr><td><code>
+				template&lt;typename OptionType><br>ProgramOption( std::string token, OptionType default_value, std::string description = "")</code></td><td>The default_value is stored within this object and can be overridden by <code>config.ini</code> or command-line arguments.</td></tr>
+	<tr><td><code>template&lt;typename OptionType><br>ProgramConstant(std::string token, OptionType default_value, std::string description = "")</code></td><td>Same as <code>ProgramOption</code> except the value is absolute - it cannot be overriden. It also does not appear in the --help command.</td></tr>
+	<tr><td><code>template&lt;typename OptionType><br>ProgramOptionPtr(std::string token, OptionType* value_ptr, Args args = {})</code><br>
+			<code>struct Args { std::optional&lt;OptionType> default_value; const char* description = ""; bool include_in_frontend = true; }</code></td><td>Same as <code>ProgramOption</code> except the value is stored elsewhere, and this object holds a raw pointer to that value.</td></tr>
+</table>
+</p>
+<h2>Frontend</h2>
+<p>
+Unlike <abbr title="Model-View-Controller">MVC</abbr> frameworks, FuzeHttp does not provide live <abbr title="Server-side rendering">SSR</abbr>.
+</p>
+<h3>File inclusion</h3>
+<p>
+Relative paths to files should be prepended with <code>FILE_</code>, so that cache control will work properly. Otherwise, the client can load files from different versions, leading to unreproducible errors. For example:<br>
+<code>&lt;link rel="stylesheet" href=FILE_"static/styles.css"></code><br>
+This should not be done for external resources, only internal assets contained in the frontend folder.
+</p>
+<h3>Using program options</h3>
+<p>
+<code>ProgramOption</code>, <code>ProgramOptionPtr</code>, and <code>ProgramConstant</code> entries can be included in the frontend, by prepending <code>CONFIG_</code> to the key. On startup, the server will fill in the values.<br>
+Given the example project has this option entry:<br>
+<code><pre>
+	(new ProgramConstant("test_program_constant", 73))
+</pre></code>
+In the frontend, <code>CONFIG_test_program_constant</code> is replaced with <code>73</code>.
+</p>
+<h2>Controller</h2>
+<p>
+All HTTP requests are routed through the controller. A pattern can be added to the controller, which matches a request URL to a view.
+</p>
+<h3>Pattern</h3>
+<p>URLs can be added to the controller with the following function:<br>
+<code>template&lt;typename... Types>
+	void addPattern(http::verb req_method, typename MakeFuncPtr&lt;StateType, typename GetHandlerArgs&lt;TypeList&lt;Types...>, ToHandlerArg>::type>::type view, Types... args)</code><br>
+A pattern consists of a method, a callback, an optional Client parameter, and a set of path segments. Path segments can be <code>const char*</code>, <code>int{}</code>, <code>std::string{}</code>, or an overload of <code>ResolverBase</code>.
+</p>
+<h3>View</h3>
+<p>
+This is a callback function which is called when its corresponding pattern in the controller matches the request URL. Every view contains arguments for the state and the request, plus variable path segments.
+</p>
+<h3>Response</h3>
+<p>
+Every view must return a <code>FuzeHttp::Response</code>. The <code>status</code> is required. Designated initializer syntax is recommended.<br>
+<code><pre>
+struct Response {
+	beast::http::status status;
+	std::unordered_map&lt;std::string, std::string> headers;
+	std::optional&lt;std::string> error_message;
+	std::optional&lt;boost::json::value> json;
+	std::optional&lt;std::filesystem::path> file;
+	std::optional&lt;std::string> body;
+};
+</pre></code>
 </p>

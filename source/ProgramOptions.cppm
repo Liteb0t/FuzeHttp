@@ -11,7 +11,6 @@ module;
 export module FuzeHttp.ProgramOptions;
 
 export namespace FuzeHttp {
-
 template<typename T>
 std::string valueAsString(const T& value);
 
@@ -34,9 +33,11 @@ public:
 	virtual bool isOption() const = 0;
 	virtual bool includeInFrontend() const { return true; };
 };
+template<typename T>
+concept IStreamAble = requires (std::istream& istream, T& t) { istream >> t; };
 
 template<typename OptionType>
-requires (std::is_convertible_v<std::remove_pointer_t<OptionType>, std::string> || requires(std::remove_pointer_t<OptionType> o){std::to_string(o);})
+requires (IStreamAble<OptionType>)
 class ProgramOption : public ProgramOptionBase {
 public:
 	ProgramOption(std::string token, OptionType default_value, std::string description = "") :
@@ -59,33 +60,22 @@ private:
 };
 
 template<typename OptionType>
-requires (std::is_convertible_v<std::remove_pointer_t<OptionType>, std::string> || requires(std::remove_pointer_t<OptionType> o){std::to_string(o);})
+requires (IStreamAble<std::remove_pointer_t<OptionType>>)
 class ProgramOptionPtr : public ProgramOptionBase {
 public:
 	struct Args {
 		std::optional<OptionType> default_value;
-		std::optional<const char*> description;
+		const char* description = "";
 		bool include_in_frontend = true;
 	};
-	// ProgramOptionPtr(std::string token, OptionType* value_ptr, OptionType default_value, std::string description = "")
-	// 		: ProgramOptionBase(token), default_value(default_value), description(description), value_ptr(value_ptr) {
-	// }
 	ProgramOptionPtr(std::string token, OptionType* value_ptr, Args args = {})
-			: ProgramOptionBase(token), value_ptr(value_ptr), /*typed_value(value_ptr),*/ default_value(args.default_value), description(args.description), include_in_frontend(args.include_in_frontend) {
-		// if (this->default_value)
-		// 	this->typed_value.default_value(this->default_value.value());
-		// this->value_semantic = std::make_shared<boost::program_options::value_semantic*>(&(this->typed_value));
-		// this->value_semantic = &(this->typed_value);
+			: ProgramOptionBase(token), value_ptr(value_ptr), default_value(args.default_value), description(args.description), include_in_frontend(args.include_in_frontend) {
 	}
 	virtual void addOptionToListIfOptional(boost::program_options::options_description& options) override {
-		// boost::program_options::typed_value value(value_ptr);
-		// boost::program_options::typed_value value = boost::program_options::value<OptionType>(value_ptr);
-		// boost::program_options::value_semantic* value_semantic = &value;
-		// options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), *value_semantic.get(), this->description ? description.value() : "")));
 		if (this->default_value)
-			options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), boost::program_options::value(value_ptr)->default_value(this->default_value.value()), this->description ? description.value() : "")));
+			options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), boost::program_options::value(value_ptr)->default_value(this->default_value.value()), this->description)));
 		else
-			options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), boost::program_options::value(value_ptr), this->description ? description.value() : "")));
+			options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), boost::program_options::value(value_ptr), this->description)));
 	}
 	virtual std::string string() const override {
 		return valueAsString(*value_ptr);
@@ -94,16 +84,13 @@ public:
 	virtual bool includeInFrontend() const override { return this->include_in_frontend; };
 private:
 	OptionType* value_ptr;
-	// boost::program_options::typed_value<OptionType> typed_value;
-	// boost::program_options::value_semantic* value_semantic;
-	// std::shared_ptr<boost::program_options::value_semantic*> value_semantic;
 	std::optional<OptionType> default_value;
-	const std::optional<const char*> description;
+	const char* description;
 	bool include_in_frontend;
 };
 
 template<typename OptionType>
-requires (std::is_convertible_v<OptionType, std::string> || requires(OptionType o){std::to_string(o);})
+requires (IStreamAble<OptionType>)
 class ProgramConstant : public ProgramOptionBase {
 public:
 	ProgramConstant(std::string token, OptionType default_value, std::string description = "") :
