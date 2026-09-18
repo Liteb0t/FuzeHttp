@@ -5,17 +5,15 @@ module;
 // #include "FuzeHttp.hpp"
 // #include "PermissionObject.hpp"
 #include "Request.hpp"
-#include "shared_state.hpp"
 #include "sodium.h"
 #include <boost/beast/http/status.hpp>
 #include <boost/json.hpp>
 #include <iostream>
 export module FuzeHttp.Example.Views_registration;
+import FuzeHttp.Example.State;
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
 import FuzeDBI;
-
-using namespace FuzeHttp;
 
 export namespace FuzeHttp::Example {
 FuzeHttp::Response requestNewAccountParameters(shared_state* state, FuzeHttp::Request req) {

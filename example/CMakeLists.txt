@@ -9,10 +9,11 @@ target_link_libraries(example
 target_sources(example
   PRIVATE
     main.cpp
-    shared_state.cpp
   PUBLIC FILE_SET CXX_MODULES
   FILES
+    config.cppm
     resolvers.cppm
+    State.cppm
     urls.cppm
     views.cppm
     views_registration.cppm

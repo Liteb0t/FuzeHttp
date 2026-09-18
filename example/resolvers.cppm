@@ -1,10 +1,15 @@
 module;
-#include "shared_state.hpp"
+#include <boost/beast/http/status.hpp>
+#include "beast.hpp"
+#include <any>
 #include <expected>
+#include <format>
+#include <string>
 export module FuzeHttp.Example.Resolvers;
+import FuzeHttp.Example.State;
 import FuzeHttp.Resolver;
 
-export namespace FuzeHttp {
+export namespace FuzeHttp::Example {
 struct ObjectResolver : Resolver<shared_state*, std::shared_ptr<TestObject>, int> {
 	std::expected<std::any, FuzeHttp::Response> fetch(shared_state* state, int key, const std::optional<Client>& client) const override {
 		if (state->objects.contains(key))

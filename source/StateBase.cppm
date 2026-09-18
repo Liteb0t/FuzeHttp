@@ -54,19 +54,6 @@ public:
 	virtual void start() {} // called after options set
 	virtual std::list<std::unique_ptr<Migrations::Migration>> addMigrations() {
 		std::list<std::unique_ptr<Migrations::Migration>> migrations;
-		/* Example migrations:
-		migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.1",
-			"ALTER TABLE message_file ADD COLUMN width INTEGER;"
-			"ALTER TABLE message_file ADD COLUMN height INTEGER;")));
-		migrations.push_back(std::unique_ptr<Migration>(new SQLOnlyMigration("0.1.2",
-			"ALTER TABLE message_file ADD COLUMN thumbnail_file_extension TEXT;"
-			"ALTER TABLE thread ADD COLUMN message_id_seq INTEGER DEFAULT 0;"
-			"UPDATE thread SET message_id_seq = 1000")));
-		migrations.push_back(std::unique_ptr<Migration>(new SmartMigration("0.2.2", state, [](FuzeDBI::Connection* db, shared_state* state){
-			const std::string version_string = db->query<std::string>("SELECT version FROM _info");
-			std::println("This is the lambda and document_root is {} and version string is {}", state->getDocumentRoot().string(), version_string);
-		})));
-		*/
 		return migrations;
 	}
 	std::optional<Client> getClientIfExists(FuzeHttp::Request req) const {
@@ -230,7 +217,7 @@ protected:
 	std::unordered_set<FuzeHttp::WebsocketSession*> websocket_sessions;
 	// std::unordered_map<std::filesystem::path, std::string> document_etags;
 	// FuzeDBI::Connection* fuze_dbi;
-	std::vector<FuzeHttp::TemplateMacro*> options;
+	// std::vector<FuzeHttp::ProgramOptionBase*> options;
 	// This mutex synchronizes all access to websocket_sessions
 	mutable std::mutex mutex;
 private:

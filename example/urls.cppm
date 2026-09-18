@@ -2,8 +2,8 @@
 // Fuze Human-oriented License v1
 module;
 #include "Controller.hpp"
-#include "shared_state.hpp"
 export module FuzeHttp.Example.Urls;
+import FuzeHttp.Example.State;
 import FuzeHttp.Example.Views;
 import FuzeHttp.Example.Views_registration;
 // #include "views.hpp"
@@ -15,7 +15,7 @@ using namespace FuzeHttp;
 using namespace FuzeHttp::Example;
 using namespace http;
 
-export namespace FuzeHttp {
+export namespace FuzeHttp::Example {
 void addURLsToController(FuzeHttp::Controller<shared_state*>* controller) {
 	// C-style strings are immutable parts of the URL, and strings/ints are variables passed into the view.
 	// Client{} is used when the function needs to identify the user via a cookie.
@@ -48,4 +48,4 @@ void addURLsToController(FuzeHttp::Controller<shared_state*>* controller) {
 		(verb::post, logout,							"registration", "logout")
 		(verb::post, changePassword, 					"registration", "change_password");
 }
-}
+} //export namespace FuzeHttp::Example

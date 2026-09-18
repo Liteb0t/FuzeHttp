@@ -1,17 +1,14 @@
 // Copyright (c) 2026, Fuze.page
 // Fuze Human-oriented License v1
 module;
-// #include "FuzeHttp.hpp"
-// #include "FuzeHttpServer.hpp"
-// #include "FuzeHttpUtils.hpp"
-// #include "PermissionObject.hpp"
 #include "Request.hpp"
-#include "shared_state.hpp"
 #include <boost/beast/http/status.hpp>
 #include <boost/json.hpp>
 #include <iostream>
 #include <print>
+#include <unordered_set>
 export module FuzeHttp.Example.Views;
+import FuzeHttp.Example.State;
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
 import FuzeHttp.Server;

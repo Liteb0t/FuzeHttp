@@ -22,6 +22,7 @@ import FuzeDBI;
 import FuzeHttp.Listener;
 import FuzeHttp.Migrations;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.ProgramOptions;
 import FuzeHttp.State;
 import FuzeHttp.Utils;
 
@@ -121,7 +122,7 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 }
 
 // Mysteriously doesnt link when placed in cpp file
-inline void applyOptionsToTemplates(const std::vector<TemplateMacro*>& options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags){
+inline void applyOptionsToTemplates(const std::vector<ProgramOptionBase*> options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags){
 	// std::println("Adding options to templates...");
 	for (auto option : options)
 		std::println("{} :: {}", option->token, option->string());
@@ -197,7 +198,11 @@ public:
 			return;
 		}
 	}
-	int processOptions(int argc, char* argv[], std::vector<FuzeHttp::TemplateMacro*> additional_options, const std::string& data_folder_name) {
+	int processOptions(int argc, char* argv[], ProgramOptions&& additional_options, const std::string& data_folder_name) {
+		additional_options.addOptions()
+			(new ProgramConstant("group_max_name", static_cast<int>(Group::MAX_NAME)))
+			(new ProgramConstant("account_max_username", static_cast<int>(Account::MAX_USERNAME)))
+			(new ProgramConstant("server_version", this->current_version));
 		std::error_code ec;
 		std::filesystem::path program_location = boost::dll::program_location().parent_path();
 		if (ec)
@@ -221,7 +226,7 @@ public:
 		// std::string site_name, favicon_url;
 		// boost::shared_ptr<boost::program_options::option_description> desc( new boost::program_options::option_description("site_name", boost::program_options::value<std::string>(&site_name)));
 
-		// TemplateOption favicon_url_opt("favicon_url", &favicon_url);
+		// ProgramOption favicon_url_opt("favicon_url", &favicon_url);
 
 		// These options can be specified in config.ini
 		boost::program_options::options_description universal_options("Universal options");
@@ -244,7 +249,7 @@ public:
 			// ("thumbnail_file_extension", boost::program_options::value<std::string>(&state_config.thumbnail_file_extension)->default_value("jpg"), "File format in which ImageMagick will create thumbnails.");
 			// ("thumbnail_size", boost::program_options::value<unsigned int>(&state_config.thumbnail_size)->default_value(150), "Maximum width and height of image thumbnails, in pixels.");
 
-		for (auto option : additional_options) {
+		for (auto option : additional_options.get()) {
 			option->addOptionToListIfOptional(universal_options);
 		}
 
@@ -396,7 +401,7 @@ public:
 					}
 				}
 			}
-			for (auto option : additional_options) {
+			for (auto option : additional_options.get()) {
 				if (option->includeInFrontend())
 					manifest_options_json_obj.emplace(option->token, option->string());
 			}
@@ -418,10 +423,11 @@ public:
 
 
 			if (!old_combined_hash || (old_combined_hash.value() != new_combined_hash))
-				FuzeHttp::applyOptionsToTemplates(additional_options, document_root, manifest_frontend_etags);
+				FuzeHttp::applyOptionsToTemplates(additional_options.get(), document_root, manifest_frontend_etags);
 			else
 				std::println("No changes to frontend detected.");
 
+			std::print("Populating files_generated_from_templates... ");
 			for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
 				if (!std::filesystem::is_regular_file(frontend_file))
 					continue;
@@ -433,6 +439,7 @@ public:
 						frontend_file_path.string().substr(frontend_file_path.string().rfind('.')));
 				}
 			}
+			std::println("done.");
 		}
 		catch (const std::exception& exception) {
 			std::println(std::cerr, "An error occured when generating frontend files: {}", exception.what());
