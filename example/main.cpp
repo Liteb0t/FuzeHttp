@@ -3,10 +3,8 @@
 // FuzeHttp was built on top of an example project by Vinnie Falco.
 // https://github.com/vinniefalco/CppCon2018
 
-#include <cstdlib>
 #include <print>
 #include <string>
-#include <vector>
 import FuzeHttp.Example.Config;
 import FuzeHttp.Example.State;
 import FuzeHttp.PermissionObject;
@@ -23,12 +21,6 @@ const std::string project_name = PROJECT_FOLDER; // used for folder name
 const std::string project_name = "FuzeHttp_Project";
 #endif
 using namespace FuzeHttp::Example;
-
-// struct ProgramOptionsStruct {
-// 	std::string site_name;
-// 	std::string favicon_url;
-// 	int thumbnail_size;
-// } template_options_struct;
 
 int main(int argc, char* argv[]) {
 	// runtime config

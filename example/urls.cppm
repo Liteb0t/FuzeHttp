@@ -27,6 +27,8 @@ void addURLsToController(FuzeHttp::Controller<shared_state*>* controller) {
 	controller->addPattern(verb::get, getGroups,						"api", "groups");
 	controller->addPattern(verb::get, getTestObject, 					"test", ObjectResolver{});
 	controller->addPatterns()
+	// A resolver which takes a parent object must have the parent existing as an earlier segment
+	// ie, ChildObjectResolver relies on the value returned from ObjectResolver
 		(verb::get, getChildObject, 					"test", ObjectResolver{}, ChildObjectResolver{})
 		(verb::put, setGroupHeirarchy,					"api", "group_heirarchy")
 		(verb::get, getServerPermissions,				"api", "server", "permissions")
