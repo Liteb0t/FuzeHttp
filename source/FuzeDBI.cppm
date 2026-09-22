@@ -130,7 +130,7 @@ public:
 		sqlite3_stmt* stmt;
 		int ec = sqlite3_prepare_v2(db, formatted_statement.c_str(), -1, &stmt, NULL);
 		if (ec != SQLITE_OK) {
-			throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\" \n{}", formatted_statement, sqlite3_errmsg(this->db)));
+			throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\"\n^-->{}", formatted_statement, sqlite3_errmsg(this->db)));
 		}
 		int param_i = 1;
 		for (std::variant<const char*, std::string, int> arg : std::initializer_list<std::variant<const char*, std::string, int>>{ args... }) {
@@ -157,7 +157,7 @@ public:
 				else
 					return void();
 			default:
-				throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\" \n{}", formatted_statement, sqlite3_errmsg(this->db)));
+				throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\"^-->{}", formatted_statement, sqlite3_errmsg(this->db)));
 				break;
 
 		}
@@ -206,7 +206,7 @@ public:
 		sqlite3_stmt* stmt;
 		int ec = sqlite3_prepare_v2(db, formatted_statement.c_str(), -1, &stmt, NULL);
 		if (ec != SQLITE_OK) {
-			throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\" \n{}", formatted_statement, sqlite3_errmsg(this->db)));
+			throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\"^-->{}", formatted_statement, sqlite3_errmsg(this->db)));
 		}
 		int param_i = 1;
 		for (std::variant<const char*, std::string, int> arg : std::initializer_list<std::variant<const char*, std::string, int>>{ args... }) {

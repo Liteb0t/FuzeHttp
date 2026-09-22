@@ -401,6 +401,12 @@ public:
 					}
 				}
 			}
+
+		std::println("manifest_frontend_etags:");
+		for (const auto& target : manifest_frontend_etags) {
+			busted_target_to_target.emplace(FuzeHttp::insertExtensionToFileName(target.first, target.second), target.first);
+			std::println("{} :: {}", target.first, target.second);
+		}
 			for (auto option : additional_options.get()) {
 				if (option->includeInFrontend())
 					manifest_options_json_obj.emplace(option->token, option->string());
@@ -445,8 +451,6 @@ public:
 			std::println(std::cerr, "An error occured when generating frontend files: {}", exception.what());
 			return 1;
 		}
-		for (const auto& target : manifest_frontend_etags)
-			busted_target_to_target.emplace(FuzeHttp::insertExtensionToFileName(target.first, target.second), target.first);
 		for (const std::string& target : files_generated_from_templates)
 			std::println("Target to file generated from template: {}", target);
 
@@ -513,7 +517,6 @@ public:
 				io_context.stop();
 			}
 		);
-
 
 		// Run the I/O service on the requested number of threads
 		std::println("Running the I/O service...");

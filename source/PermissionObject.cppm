@@ -37,6 +37,8 @@ struct Client {
 	// const std::string session_id;
 };
 
+
+
 class PermissionObjectBase {
 	friend class PermissionManagedObject;
 	friend class PermissionManager;
@@ -244,6 +246,8 @@ private:
 	std::unordered_map<int, PermissionCollection> account_permissions;
 };
 
+
+
 class PermissionManager : public PermissionObjectBase {
 public:
 	PermissionManager(int permission_object_id, FuzeDBI::Connection* db)
@@ -261,7 +265,10 @@ public:
 	}
 	bool groupExists(int group_id) const {
 		std::lock_guard<std::mutex> lock(permission_mutex);
-		std::unordered_map<int, Group>::const_iterator it = this->groups.find(group_id); 
+		return groupExistsUnlocked(group_id);
+	}
+	bool groupExistsUnlocked(int group_id) const {
+		std::unordered_map<int, Group>::const_iterator it = this->groups.find(group_id);
 		return it != this->groups.end();
 	}
 	int getClientRank(const std::optional<Client>& client) const override {
@@ -405,6 +412,10 @@ protected:
 		return ordered_groups_containing_member;
 	}
 	const Group* getGroup(int group_id) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		return this->getGroupUnlocked(group_id);
+	}
+	const Group* getGroupUnlocked(int group_id) const {
 		return &(this->groups.at(group_id));
 	}
 	// const Account* getAccount(std::string username) const {
@@ -462,7 +473,7 @@ protected:
 				new_group_order_set.insert(group_id);
 
 			// Check if all groups exist
-			if (!this->groupExists(group_id)) {
+			if (!this->groupExistsUnlocked(group_id)) {
 				std::cerr << std::format("Group {} does not exist.", group_id) << std::endl;
 				consistency_test_passed = false;
 			}
@@ -501,6 +512,13 @@ protected:
 		}
 		return i;
 	}
+	bool groupExistsAndContainsMember(int group_id, int account_id) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (auto it = groups.find(group_id); it != groups.end())
+			return it->second.containsMember(account_id);
+		else
+			return false;
+	}
 	int getClientRankUnlocked(const std::optional<Client>& client) const override {
 		if (!client || !client.value().account_id)
 			return this->ordered_groups.size(); // This is the least privileged rank
@@ -534,6 +552,8 @@ private:
 	std::unordered_map<int, Group> groups;
 	std::vector<int> ordered_groups;
 };
+
+
 
 class PermissionManagedObject : public PermissionObjectBase {
 public:
