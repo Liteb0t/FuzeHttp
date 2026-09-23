@@ -372,7 +372,7 @@ public:
 				boost::json::object manifest_obj = boost::json::parse(json_as_str).as_object();
 				for (const auto& frontend_json_entry : manifest_obj.at("frontend").as_object()) {
 					std::filesystem::path frontend_file_path = std::string(frontend_json_entry.key());
-					if (!std::filesystem::is_regular_file(frontend_file_path))
+					if (!std::filesystem::is_regular_file(document_root / frontend_file_path))
 						continue;
 					if (fileNameEndsWith(frontend_file_path.filename(), ".template"))
 						continue;
@@ -467,13 +467,13 @@ public:
 		state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
 		state->media_location = program_directories.media;
 		state->busted_target_to_target = std::move(busted_target_to_target);
-		// std::println("Busted target to target:");
-		// for (const auto& target :state-> busted_target_to_target)
-		// 	std::println("{} :: {}", target.first, target.second);
+		std::println("Busted target to target:");
+		for (const auto& target : state->busted_target_to_target)
+			std::println("{} :: {}", target.first, target.second);
 		state->manifest_frontend_etags = std::move(manifest_frontend_etags);
-		// std::print("manifest_frontend_etags: ");
-		// for (const auto& target : state->manifest_frontend_etags)
-		// 	std::println("{} :: {}", target.first, target.second);
+		std::print("manifest_frontend_etags: ");
+		for (const auto& target : state->manifest_frontend_etags)
+			std::println("{} :: {}", target.first, target.second);
 		state->files_generated_from_templates = std::move(files_generated_from_templates);
 		state->frontend_etag = frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
 		// this->state = std::move(state);
