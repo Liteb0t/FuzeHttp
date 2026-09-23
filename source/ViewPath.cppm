@@ -1,6 +1,7 @@
 // Copyright (c) 2026, Fuze.page
 // Fuze Human-oriented License v1
-#pragma once
+// #pragma once
+module;
 #include "beast.hpp"
 #include <expected>
 #include <filesystem>
@@ -9,8 +10,9 @@ import FuzeHttp.Core;
 import FuzeHttp.Utils;
 import FuzeHttp.PermissionObject;
 import FuzeHttp.Resolver;
+export module FuzeHttp.ViewPath;
 
-namespace FuzeHttp {
+export namespace FuzeHttp {
 
 typedef const http::request<http::string_body, http::basic_fields<std::allocator<char>>>& Request;
 
@@ -164,42 +166,8 @@ public:
 			res.headers.insert({"Set-Cookie", formatCookie(session_id_base64)});
 		}
 		if (res.file) { // cache controle
-			if (std::filesystem::is_directory(res.file.value()))
-				res.file = res.file.value() / "index.html";
-			std::string target = std::filesystem::proximate(res.file.value(), state->getDocumentRoot()).string();
-			// std::println("Proximate target (pre):  {}", target);
-
-			if (target.empty() || target.ends_with('/'))
-				target += "index.html";
-			// Is static asset
-			if (auto it = state->busted_target_to_target.find(target); it != state->busted_target_to_target.end()) {
-				target = it->second;
-				res.file = state->getDocumentRoot() / target;
-				res.headers.emplace("Cache-Control", "max-age=7750000, immutable");
-			}
-			// If path leads to target of .GENERATED file, add the filename extension
-			else if (auto it = state->files_generated_from_templates.find(target); it != state->files_generated_from_templates.end()) {
-				target = FuzeHttp::insertExtensionToFileName(*it, ".GENERATED");
-				res.file = state->getDocumentRoot() / target;
-				res.headers.emplace("Cache-Control", "no-cache");
-			}
-			std::println("[showMainPage] will serve {}", target);
-			std::string etag;
-			if (std::unordered_map<std::string /*target*/, std::string /*etag*/>::const_iterator it = state->manifest_frontend_etags.find(target); it != state->manifest_frontend_etags.end()) {
-				std::println("Found manifest etag {}", it->second);
-				etag = it->second;
-			}
-			else
-				etag = state->frontend_etag;
-
-			if (auto if_none_match_header = req.find("If-None-Match"); if_none_match_header != req.end()) {
-				std::string if_none_match_header_value = if_none_match_header->value();
-				if (etag == if_none_match_header_value) {
-					return {.status=http::status::not_modified};
-				}
-			}
-			res.headers.emplace("ETag", etag);
-			std::println("Proximate target (post):  {}", target);
+			if (auto early_response = setCacheControl(state, res, req))
+				return early_response.value();
 		}
 		return res;
 	}
@@ -299,6 +267,45 @@ private:
 			}
 		}
 		setArg<I + 1, T>(index-1, value);
+	}
+	static std::optional<Response> setCacheControl(StateType state, Response& res, Request& req) {
+		if (std::filesystem::is_directory(res.file.value()))
+			res.file = res.file.value() / "index.html";
+		std::string target = std::filesystem::proximate(res.file.value(), state->getDocumentRoot()).string();
+		// std::println("Proximate target (pre):  {}", target);
+
+		if (target.empty() || target.ends_with('/'))
+			target += "index.html";
+		// Is static asset
+		if (auto it = state->busted_target_to_target.find(target); it != state->busted_target_to_target.end()) {
+			target = it->second;
+			res.file = state->getDocumentRoot() / target;
+			res.headers.emplace("Cache-Control", "max-age=7750000, immutable");
+		}
+		// If path leads to target of .GENERATED file, add the filename extension
+		else if (auto it = state->files_generated_from_templates.find(target); it != state->files_generated_from_templates.end()) {
+			target = FuzeHttp::insertExtensionToFileName(*it, ".GENERATED");
+			res.file = state->getDocumentRoot() / target;
+			res.headers.emplace("Cache-Control", "no-cache");
+		}
+		std::println("[showMainPage] will serve {}", target);
+		std::string etag;
+		if (std::unordered_map<std::string /*target*/, std::string /*etag*/>::const_iterator it = state->manifest_frontend_etags.find(target); it != state->manifest_frontend_etags.end()) {
+			std::println("Found manifest etag {}", it->second);
+			etag = it->second;
+		}
+		else
+			etag = state->frontend_etag;
+
+		if (auto if_none_match_header = req.find("If-None-Match"); if_none_match_header != req.end()) {
+			std::string if_none_match_header_value = if_none_match_header->value();
+			if (etag == if_none_match_header_value) {
+				return Response{.status=http::status::not_modified};
+			}
+		}
+		res.headers.emplace("ETag", etag);
+		std::println("Proximate target (post):  {}", target);
+		return {};
 	}
 	FuncPtr view_func;
 	ArgTuple view_args;

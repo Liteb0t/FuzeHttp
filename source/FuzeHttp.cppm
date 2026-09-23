@@ -82,13 +82,6 @@ inline std::string formatCookie(const std::string& session_id) {
 	return std::format("Session={}; Path=/; HttpOnly", session_id);
 }
 
-struct Session {
-	const int id;
-	const int client_id;
-	// const std::string key;
-	const std::chrono::time_point<std::chrono::system_clock> created_at;
-};
-
 struct Invite {
 	const int granted_group_id;
 	const std::chrono::time_point<std::chrono::system_clock> created_at;

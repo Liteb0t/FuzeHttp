@@ -9,6 +9,8 @@ target_sources(FuzeHttp
     BASE_DIRS
       ${CMAKE_CURRENT_SOURCE_DIR}
     FILES
+      Client.cppm
+      Controller.cppm
       FuzeDBI.cppm
       FuzeHttp.cppm
       FuzeHttpServer.cppm
@@ -24,12 +26,13 @@ target_sources(FuzeHttp
       Secret.cppm
       ProgramOptions.cppm
       StateBase.cppm
+      ViewPath.cppm
     FILE_SET headers
     TYPE HEADERS
     BASE_DIRS
       ${CMAKE_CURRENT_SOURCE_DIR}
     FILES
-      Controller.hpp
+      # Controller.hpp
       Request.hpp
-      ViewPath.hpp
+      # ViewPath.hpp
 )

@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Fuze.page
 // Fuze Human-oriented License v1
 module;
-#include "Controller.hpp"
+#include <beast.hpp>
 export module FuzeHttp.Example.Urls;
 import FuzeHttp.Example.State;
 import FuzeHttp.Example.Views;
@@ -9,11 +9,12 @@ import FuzeHttp.Example.Views_registration;
 // #include "views.hpp"
 // #include "views_registration.hpp"
 import FuzeHttp.State;
+import FuzeHttp.Controller;
 import FuzeHttp.Example.Resolvers;
 
 using namespace FuzeHttp;
 using namespace FuzeHttp::Example;
-using namespace http;
+using namespace beast::http;
 
 export namespace FuzeHttp::Example {
 void addURLsToController(FuzeHttp::Controller<shared_state*>* controller) {

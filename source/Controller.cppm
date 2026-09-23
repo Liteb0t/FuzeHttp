@@ -1,13 +1,16 @@
-#pragma once
+module;
 #include "beast.hpp"
 #include "Request.hpp"
-#include "ViewPath.hpp"
+// #include "ViewPath.hpp"
 #include <unordered_set>
 #include <iostream>
 #include <print>
+export module FuzeHttp.Controller;
+export import FuzeHttp.Client;
 import FuzeHttp.Core;
+import FuzeHttp.ViewPath;
 
-namespace FuzeHttp {
+export namespace FuzeHttp {
 template<typename StateType>
 class Controller {
 	class EasyPatternAdder;

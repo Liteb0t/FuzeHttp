@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Fuze.page
 // Fuze Human-oriented License v1
 module;
-#include "Controller.hpp"
+// #include "Controller.hpp"
 #include <boost/asio.hpp>
 #define BOOST_DLL_USE_STD_FS
 #include <boost/algorithm/string/replace.hpp>
@@ -19,6 +19,7 @@ module;
 export module FuzeHttp.Server;
 // #include "FuzeHttpUtils.hpp"
 import FuzeDBI;
+import FuzeHttp.Controller;
 import FuzeHttp.Listener;
 import FuzeHttp.Migrations;
 import FuzeHttp.PermissionObject;

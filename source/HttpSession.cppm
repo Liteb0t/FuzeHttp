@@ -2,7 +2,7 @@
 // Fuze Human-oriented License v1
 module;
 #include "beast.hpp"
-#include "Controller.hpp"
+// #include "Controller.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
@@ -13,6 +13,7 @@ module;
 #include <memory>
 #include <print>
 export module FuzeHttp.HttpSession;
+import FuzeHttp.Controller;
 import FuzeHttp.Core;
 import FuzeHttp.State;
 

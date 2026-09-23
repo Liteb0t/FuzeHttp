@@ -11,6 +11,7 @@ module;
 #include <vector>
 export module FuzeHttp.PermissionObject;
 
+export import FuzeHttp.Client;
 export import FuzeHttp.Group;
 export import FuzeHttp.PermissionCollection;
 import FuzeDBI;
@@ -21,23 +22,6 @@ enum class BUILTIN_GROUPS {
 	USERS = 1,
 	PUBLIC = 2
 };
-
-struct Account {
-	inline static const int PUBLIC = 0;
-	inline static const size_t MAX_USERNAME = 32;
-	inline static const size_t MIN_PASSWORD = 3;
-	const int id;
-	std::optional<int> client_id;
-	std::string username;
-};
-
-struct Client {
-	int id;
-	std::optional<int> account_id;
-	// const std::string session_id;
-};
-
-
 
 class PermissionObjectBase {
 	friend class PermissionManagedObject;
