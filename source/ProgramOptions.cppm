@@ -122,7 +122,7 @@ class ProgramOptions {
 public:
 	void addOption(ProgramOptionBase* program_option) { this->program_options.push_back(program_option); }
 	EasyOptionAdder addOptions() { return EasyOptionAdder(this); }
-	std::vector<ProgramOptionBase*> get() { return program_options; }
+	std::vector<ProgramOptionBase*> get() const { return program_options; }
 private:
 	std::vector<ProgramOptionBase*> program_options;
 };

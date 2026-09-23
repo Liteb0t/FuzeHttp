@@ -123,7 +123,7 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 }
 
 // Mysteriously doesnt link when placed in cpp file
-inline void applyOptionsToTemplates(const std::vector<ProgramOptionBase*> options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags){
+inline void applyOptionsToTemplates(const std::vector<ProgramOptionBase*> options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags){
 	// std::println("Adding options to templates...");
 	for (auto option : options)
 		std::println("{} :: {}", option->token, option->string());
@@ -186,6 +186,104 @@ inline void applyOptionsToTemplates(const std::vector<ProgramOptionBase*> option
 	}
 	std::println("Done.");
 }
+void writeManifest(std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags,
+	std::unordered_map<std::string, std::string>* busted_target_to_target,
+	std::string& frontend_etag, const std::filesystem::path& document_root, std::filesystem::path manifest_file, const ProgramOptions& additional_options) {
+	// manifest_frontend_etags maps existing relative_path (string) to etag
+	std::optional<std::string> old_combined_hash;
+	bool is_read_only = std::getenv("APPDIR");
+	if (is_read_only) std::println("APPDIR found. Will not write new manifest.json");
+	else              std::println("APPDIR not found, but that's okay. Will write manifest.json");
+	if (std::filesystem::exists(manifest_file)) {
+		std::ifstream manifest_json_in(manifest_file);
+		std::string file_line, json_as_str;
+		while (std::getline(manifest_json_in, file_line))
+			json_as_str += file_line;
+		boost::json::object manifest_obj = boost::json::parse(json_as_str).as_object();
+		for (const auto& frontend_json_entry : manifest_obj.at("frontend").as_object()) {
+			std::filesystem::path frontend_file_path = std::string(frontend_json_entry.key());
+			if (!std::filesystem::is_regular_file(document_root / frontend_file_path))
+				continue;
+			if (fileNameEndsWith(frontend_file_path.filename(), ".template"))
+				continue;
+			if (fileNameEndsWith(frontend_file_path.filename(), ".GENERATED"))
+				continue;
+			// std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
+			if (!manifest_frontend_etags.contains(frontend_file_path.string()))
+				manifest_frontend_etags.emplace(std::string(frontend_json_entry.key()), frontend_json_entry.value().as_string());
+		}
+		old_combined_hash = manifest_obj.at("combined_hash").as_string();
+	}
+	// create manifest JSON OBJECT
+	// All frontend files except GENERATED are added to manifest. To detect changes the manifest JSON in memory and the previously used one in the filesystem are hashed; if the hashes are not equal, we know there was a change.
+	boost::json::object manifest_obj, manifest_frontend_json_obj, manifest_options_json_obj;
+	for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
+		// Should loop through the directory recursively and see if theres any new files not in the manifest. Indeed, there may be no manifest at all yet.
+		// Remember, only non-template, and non-GENERAted allowed in manifest
+		if (!std::filesystem::is_regular_file(frontend_file))
+			continue;
+		if (fileNameEndsWith(frontend_file.path().filename(), ".GENERATED"))
+			continue;
+		// if (fileNameEndsWith(frontend_file.path().filename(), ".template"))
+		// 	continue;
+		std::string new_etag = getEtagFromFile(frontend_file);
+		std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
+		if (!manifest_frontend_etags.contains(frontend_file_path.string())) {
+			manifest_frontend_etags.emplace(frontend_file_path.string(), new_etag);
+		}
+		else {
+			if (!is_read_only)
+				manifest_frontend_etags.at(frontend_file_path.string()) = new_etag; // set ETAG, maybe be new or may be old, on existing manifest.json entry.
+			// std::string old_etag = manifest_frontend_etags.at(frontend_file_path.string()); // grabs the etag from the old manifest.json
+		}
+		if (!is_read_only)
+			manifest_frontend_json_obj.emplace(frontend_file_path.string(), new_etag);
+	}
+
+	std::println("manifest_frontend_etags:");
+	for (const auto& target : manifest_frontend_etags) {
+		busted_target_to_target->emplace(FuzeHttp::insertExtensionToFileName(target.first, target.second), target.first);
+		std::println("{} :: {}", target.first, target.second);
+	}
+	if (!is_read_only) {
+		for (auto option : additional_options.get()) {
+			if (option->includeInFrontend())
+				manifest_options_json_obj.emplace(option->token, option->string());
+		}
+		// options are hashed, because frontend templates might use their CONFIG_... values
+		std::string options_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_options_json_obj));
+		std::string frontend_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_frontend_json_obj));
+		frontend_etag = frontend_hash;
+		std::string new_combined_hash = getHash<boost::hash2::md5_128>(options_hash + frontend_hash);
+		manifest_obj.emplace("frontend", manifest_frontend_json_obj);
+		manifest_obj.emplace("combined_hash", new_combined_hash);
+		std::string new_json_as_str = boost::json::serialize(manifest_obj);
+		std::ofstream manifest_json_out(manifest_file);
+		manifest_json_out.write(new_json_as_str.c_str(), new_json_as_str.length());
+		if (!old_combined_hash || (old_combined_hash.value() != new_combined_hash))
+			FuzeHttp::applyOptionsToTemplates(additional_options.get(), document_root, manifest_frontend_etags);
+		else
+			std::println("No changes to frontend detected.");
+	}
+	std::println("done.");
+} // writeManifest
+std::unordered_set<std::string> getFilesGeneratedFromTemplates(const std::filesystem::path& document_root) {
+	std::unordered_set<std::string> files_generated_from_templates;
+	for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
+		if (!std::filesystem::is_regular_file(frontend_file))
+			continue;
+		std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
+
+		if (fileNameEndsWith(frontend_file_path.filename(), ".GENERATED")) {
+			files_generated_from_templates.emplace(
+				frontend_file_path.string().substr(0, frontend_file_path.string().rfind(".GENERATED")) +
+				frontend_file_path.string().substr(frontend_file_path.string().rfind('.')));
+		}
+	}
+	for (const std::string& target : files_generated_from_templates)
+			std::println("Target to file generated from template: {}", target);
+	return files_generated_from_templates;
+} // getFilesGeneratedFromTemplates()
 } // namespace FuzeHttp
 
 export namespace FuzeHttp {
@@ -221,6 +319,7 @@ public:
 		command_line_specific_options.add_options()
 			("create_owner,o", "Generates a link to create the server owner's account.")
 			("config,c", boost::program_options::value<std::string>(&config_file_str), "location of configuration file.")
+			("generate_manifest", "Generates manifest.json - useful for read-only builds like AppImage")
 			("version,v", "Show version string.")
 			("help,h", "Show list of options.");
 
@@ -235,7 +334,7 @@ public:
 			("data_directory", boost::program_options::value<std::string>(&data_directory_str))
 			// ("file_size_limit_mb", boost::program_options::value<unsigned int>(&state_config.file_size_limit_mb)->default_value(25), "In MB")
 			("environment_variable_for_secret", boost::program_options::value<std::string>(&environment_variable_for_secret)->default_value("FUZEHTTP_SECRET"))
-			("secret_required", boost::program_options::value<bool>(&secret_required)->default_value(true))
+			("secret_required", boost::program_options::value<bool>(&secret_required)->default_value(false))
 			("media_directory,m", boost::program_options::value<std::string>(&media_directory_str),  "File path where user-submitted media is stored. data_directory is used if none is specified.")
 			("sqlite_database_file,s", boost::program_options::value<std::string>(&sqlite_database_file_str),  "File where SQLite data is stored. data_directory is used if none is specified.")
 			("server_port,p", boost::program_options::value<unsigned short>(&server_port)->default_value(8300), "The port which the server will serve. Make sure it isn't already in use by another service.")
@@ -319,10 +418,12 @@ public:
 #ifdef FUZEDBI_POSTGRES
 			this->db = new FuzeDBI::Connection(postgresql_user, postgresql_host, postgresql_port, postgresql_database_name);
 #elifdef FUZEDBI_SQLITE
-			std::print("sqlite_database_file: {}", program_directories.sqlite_file.string());
+			std::println("sqlite_database_file: {}", program_directories.sqlite_file.string());
 
+			std::filesystem::create_directories(program_directories.sqlite_file.parent_path());
 			this->db = new FuzeDBI::Connection(program_directories.sqlite_file.string());
 #endif
+			std::println("Made database connection");
 			try {
 				database_version = this->db->query<std::optional<std::string>>("SELECT version FROM _info");
 			}
@@ -335,150 +436,59 @@ public:
 				// 	throw std::runtime_error(std::format("Database template file {} not found.", template_path.string()));
 				Migrations::firstTimeSetup(this->db, program_directories.data / "database_template.sql", program_directories.sqlite_file.string(), current_version);
 			}
-		}
-		catch (const std::exception& exception) {
-			std::println(std::cerr, "{}", exception.what());
-			return 1;
-		}
-		std::println("Set port: {}", server_port);
-		std::println("Set threads: {}", threads);
-		if (threads > 1)
-			std::println("Warning: issues may arise from multi-threading");
+			std::println("Set port: {}", server_port);
+			std::println("Set threads: {}", threads);
+			if (threads > 1)
+				std::println("Warning: issues may arise from multi-threading");
 
-		// this->media_location = program_directories.media;
-		this->document_root = program_directories.data / "frontend";
-		std::filesystem::path manifest_file = program_directories.data / "manifest.json";
-		// std::filesystem::path template_root = program_directories.data / "frontend" / "templates";
-		// boost::bimap<std::string, std::string> path_to_busted_path;
-		// std::unordered_map<std::string, std::filesystem::path> busted_target_to_path;
+			// this->media_location = program_directories.media;
+			this->document_root = program_directories.data / "frontend";
+			// std::filesystem::path template_root = program_directories.data / "frontend" / "templates";
+			// boost::bimap<std::string, std::string> path_to_busted_path;
+			// std::unordered_map<std::string, std::filesystem::path> busted_target_to_path;
 
-		// std::unordered_map<std::string , std::string > manifest_frontend_etags;
-		// std::unordered_set<std::string> files_generated_from_templates;
+			// std::unordered_map<std::string , std::string > manifest_frontend_etags;
+			// std::unordered_set<std::string> files_generated_from_templates;
 
-		// cache controle to major steve
-		std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags;
-		std::unordered_map<std::string, std::string> busted_target_to_target;
-		std::unordered_set<std::string> files_generated_from_templates;
-		std::string frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
-		try {
-			std::optional<std::string> old_combined_hash;
-			bool manifest_file_existed;
-			if (std::filesystem::exists(manifest_file)) {
-				manifest_file_existed = true;
-				std::ifstream manifest_json_in(manifest_file);
-				std::string file_line, json_as_str;
-				while (std::getline(manifest_json_in, file_line))
-					json_as_str += file_line;
-				boost::json::object manifest_obj = boost::json::parse(json_as_str).as_object();
-				for (const auto& frontend_json_entry : manifest_obj.at("frontend").as_object()) {
-					std::filesystem::path frontend_file_path = std::string(frontend_json_entry.key());
-					if (!std::filesystem::is_regular_file(document_root / frontend_file_path))
-						continue;
-					if (fileNameEndsWith(frontend_file_path.filename(), ".template"))
-						continue;
-					if (fileNameEndsWith(frontend_file_path.filename(), ".GENERATED"))
-						continue;
-					// std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
-					if (!manifest_frontend_etags.contains(frontend_file_path.string()))
-						manifest_frontend_etags.emplace(std::string(frontend_json_entry.key()), frontend_json_entry.value().as_string());
-				}
-				old_combined_hash = manifest_obj.at("combined_hash").as_string();
-			}
-			else
-				manifest_file_existed = false;
-			// create manifest JSON OBJECT
-			// All frontend files except GENERATED are added to manifest. To detect changes the manifest JSON in memory and the previously used one in the filesystem are hashed; if the hashes are not equal, we know there was a change.
-			boost::json::object manifest_obj, manifest_frontend_json_obj, manifest_options_json_obj;
-			for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
-				if (!std::filesystem::is_regular_file(frontend_file))
-					continue;
-				std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
-				if (!manifest_frontend_etags.contains(frontend_file_path.string())) {
-					if (!fileNameEndsWith(frontend_file.path().filename(), ".GENERATED")) {
-						std::string new_etag = getEtagFromFile(frontend_file);
-						if (!fileNameEndsWith(frontend_file.path().filename(), ".template"))
-							manifest_frontend_etags.emplace(frontend_file_path.string(), new_etag);
-						manifest_frontend_json_obj.emplace(frontend_file_path.string(), new_etag);
-					}
-				}
-			}
-
-		std::println("manifest_frontend_etags:");
-		for (const auto& target : manifest_frontend_etags) {
-			busted_target_to_target.emplace(FuzeHttp::insertExtensionToFileName(target.first, target.second), target.first);
-			std::println("{} :: {}", target.first, target.second);
-		}
-			for (auto option : additional_options.get()) {
-				if (option->includeInFrontend())
-					manifest_options_json_obj.emplace(option->token, option->string());
-			}
-			// std::string config_hash = getHash<boost::hash2::md5_128>(std::to_string(std::filesystem::last_write_time(config_file_path).time_since_epoch().count()));
-			std::string options_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_options_json_obj));
-			std::string frontend_hash = getHash<boost::hash2::md5_128>(boost::json::serialize(manifest_frontend_json_obj));
-			frontend_etag = frontend_hash;
-			std::string new_combined_hash = getHash<boost::hash2::md5_128>(options_hash + frontend_hash);
-			manifest_obj.emplace("frontend", manifest_frontend_json_obj);
-			manifest_obj.emplace("combined_hash", new_combined_hash);
-			std::string new_json_as_str = boost::json::serialize(manifest_obj);
-			std::ofstream manifest_json_out(manifest_file);
-			manifest_json_out.write(new_json_as_str.c_str(), new_json_as_str.length());
-			// if combined_hash is different, write to file and process templates
-
-			// writeManifestJson(manifest_file, manifest_frontend_etags, config_file_path);
-
-			// json_as_str = writeManifestJson(manifest_file, manifest_frontend_etags);
-
-
-			if (!old_combined_hash || (old_combined_hash.value() != new_combined_hash))
-				FuzeHttp::applyOptionsToTemplates(additional_options.get(), document_root, manifest_frontend_etags);
-			else
-				std::println("No changes to frontend detected.");
-
+			// cache controle to major steve
+			std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags;
+			std::unordered_map<std::string, std::string> busted_target_to_target;
+			std::string frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
+			writeManifest(manifest_frontend_etags, &busted_target_to_target, frontend_etag, document_root, program_directories.data / "manifest.json", additional_options);
 			std::print("Populating files_generated_from_templates... ");
-			for (const auto& frontend_file : std::filesystem::recursive_directory_iterator(document_root)) {
-				if (!std::filesystem::is_regular_file(frontend_file))
-					continue;
-				std::filesystem::path frontend_file_path = std::filesystem::proximate(frontend_file.path(), document_root);
-				// TODO fix bug where two starts are required to add to files_generated_from_templates
-				if (fileNameEndsWith(frontend_file_path.filename(), ".GENERATED")) {
-					files_generated_from_templates.emplace(
-						frontend_file_path.string().substr(0, frontend_file_path.string().rfind(".GENERATED")) +
-						frontend_file_path.string().substr(frontend_file_path.string().rfind('.')));
-				}
+			std::unordered_set<std::string> files_generated_from_templates = getFilesGeneratedFromTemplates(document_root);
+			if (this->variable_map.count("generate_manifest"))
+				return 0; // we done did what we need do lol
+
+			// state
+			this->state = std::make_unique<StateType>(db);
+			if (this->variable_map.count("create_owner")) {
+				std::string invite_key = state->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
+				std::println("\nUse this link to register the owner account: http://localhost:{}/invite/{}", this->server_port, invite_key);
 			}
-			std::println("done.");
+			else if (!state->ownerExists())
+				std::println("\nERROR: No owner found. Restart the application with --create_owner");
+			state->document_root = document_root;
+			state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
+			state->media_location = program_directories.media;
+			state->busted_target_to_target = std::move(busted_target_to_target);
+			std::println("Busted target to target:");
+			for (const auto& target : state->busted_target_to_target)
+				std::println("{} :: {}", target.first, target.second);
+			state->manifest_frontend_etags = std::move(manifest_frontend_etags);
+			std::print("manifest_frontend_etags: ");
+			for (const auto& target : state->manifest_frontend_etags)
+				std::println("{} :: {}", target.first, target.second);
+			state->files_generated_from_templates = std::move(files_generated_from_templates);
+			state->frontend_etag = frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
+			// this->state = std::move(state);
+			// std::println("frondend_etag: {}", state->frontend_etag);
+			state->parser_body_size_limit_mb = parser_body_size_limit_mb;
 		}
 		catch (const std::exception& exception) {
-			std::println(std::cerr, "An error occured when generating frontend files: {}", exception.what());
+			std::println(std::cerr, "An error occured during startup: {}", exception.what());
 			return 1;
 		}
-		for (const std::string& target : files_generated_from_templates)
-			std::println("Target to file generated from template: {}", target);
-
-		// state
-		this->state = std::make_unique<StateType>(db);
-		if (this->variable_map.count("create_owner")) {
-			std::string invite_key = state->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
-			std::println("\nUse this link to register the owner account: http://localhost:{}/invite/{}", this->server_port, invite_key);
-		}
-		else if (!state->ownerExists())
-			std::println("\nERROR: No owner found. Restart the application with --create_owner");
-		state->document_root = document_root;
-		state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
-		state->media_location = program_directories.media;
-		state->busted_target_to_target = std::move(busted_target_to_target);
-		std::println("Busted target to target:");
-		for (const auto& target : state->busted_target_to_target)
-			std::println("{} :: {}", target.first, target.second);
-		state->manifest_frontend_etags = std::move(manifest_frontend_etags);
-		std::print("manifest_frontend_etags: ");
-		for (const auto& target : state->manifest_frontend_etags)
-			std::println("{} :: {}", target.first, target.second);
-		state->files_generated_from_templates = std::move(files_generated_from_templates);
-		state->frontend_etag = frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
-		// this->state = std::move(state);
-		// std::println("frondend_etag: {}", state->frontend_etag);
-		state->parser_body_size_limit_mb = parser_body_size_limit_mb;
 		return -1;
 	}
 
