@@ -290,6 +290,13 @@ public:
 		std::lock_guard<std::mutex> lock(permission_mutex);
 		return this->accounts.at(account_id).username;
 	}
+	std::string getUsernameFromClient(const std::optional<Client> client) const {
+		std::lock_guard<std::mutex> lock(permission_mutex);
+		if (client && client.value().account_id)
+			return this->accounts.at(client.value().account_id.value()).username;
+		else
+			return "Anonymous";
+	}
 	bool userExists(std::string username) const {
 		std::lock_guard<std::mutex> lock(permission_mutex);
 		std::unordered_map<std::string, int>::const_iterator it = this->username_to_id_map.find(username);
@@ -511,13 +518,6 @@ protected:
 				break;
 		}
 		return i;
-	}
-	bool groupExistsAndContainsMember(int group_id, int account_id) const {
-		std::lock_guard<std::mutex> lock(permission_mutex);
-		if (auto it = groups.find(group_id); it != groups.end())
-			return it->second.containsMember(account_id);
-		else
-			return false;
 	}
 	int getClientRankUnlocked(const std::optional<Client>& client) const override {
 		if (!client || !client.value().account_id)

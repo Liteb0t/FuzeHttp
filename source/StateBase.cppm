@@ -280,7 +280,7 @@ public:
 	void send(const boost::json::object& json) {
 		this->send(std::make_shared<const std::string>(boost::json::serialize(json)));
 	}
-	std::optional<Client> getClient() const { return this->client; }
+	const std::optional<Client> getClient() const { return this->client; }
 	auto getExecutor() { return ws_.get_executor(); }
 protected:
 	StateBase* state_;
