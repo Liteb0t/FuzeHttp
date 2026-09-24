@@ -3,7 +3,7 @@ module;
 #include "Request.hpp"
 // #include "ViewPath.hpp"
 #include <unordered_set>
-#include <iostream>
+// #include <iostream>
 #include <print>
 export module FuzeHttp.Controller;
 export import FuzeHttp.Client;
@@ -26,8 +26,8 @@ public:
 	Response matchPathAndExecute(StateType state, Request& req) {
 		if (!req.target().starts_with('/'))
 			return Response{.status = http::status::bad_request};
-		for (int id : all_views)
-			views.at(id)->clearResolvedObject();
+		// for (int id : all_views)
+		// 	views.at(id)->clearResolvedObject();
 
 		std::optional<Client> client = state->getClientIfExists(req);
 
@@ -50,8 +50,8 @@ public:
 				section = path_name.substr(location_start_bound);
 			else
 				section = path_name.substr(location_start_bound, location_end_bound - location_start_bound);
-			std::erase_if(matched_views, [this, &req, &section, section_index, &state](const int view_id){
-				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index, state) == false;
+			std::erase_if(matched_views, [this, &req, &section, section_index](const int view_id){
+				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index) == false;
 			});
 			sections.push_back(section);
 			if (matched_views.size() == 0)
@@ -91,12 +91,13 @@ public:
 			// std::cout << "No patterns were matched to path_name " << path_name << std::endl;
 			return FuzeHttp::Response{.status = http::status::not_found};
 		}
+		std::unique_ptr<TemporarySecretary<StateType>> temporary_secretary = views.at(id_of_view_to_keep)->createTemporarySecretary();
 		for (int i = 0; i < sections.size(); ++i) {
-			if (auto resolve_response = this->views.at(id_of_view_to_keep)->resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(sections[i], i, state, client);
+			if (auto resolve_response = temporary_secretary->resolve(sections[i], i, state, client);
 				!resolve_response)
 				return resolve_response.error();
 		}
-		return views.at(id_of_view_to_keep)->executeView(state, req);
+		return temporary_secretary->executeView(state, req);
 		// else if (req.method() == http::verb::get) {
 		// 	return FuzeHttp::Response{.status = http::status::ok, .file = std::filesystem::canonical(path_name.substr(1), state->document_root)};
 		// }

@@ -83,7 +83,7 @@ public:
 	}
 	Client createClient(std::optional<int> account_id = {}) {
 		int new_client_id = db->incrementSequence("client_id");
-		std::cout << "[FuzeHttp] Creating new client with ID " << new_client_id << std::endl;
+		std::println("[FuzeHttp] Creating new client with ID {}...", new_client_id);
 		std::lock_guard<std::mutex> lock(mutex);
 		if (account_id) {
 			db->query<void>("INSERT INTO client(id, account_id) VALUES ($1, $2)", new_client_id, account_id.value());
@@ -93,10 +93,12 @@ public:
 			db->query<void>("INSERT INTO client(id) VALUES ($1)", new_client_id);
 		Client client{.id = new_client_id, .account_id = account_id};
 		this->clients.emplace(new_client_id, client);
+		std::println("done.");
 		return client;
 	}
 	// std::variant<Client, FuzeHttp::Response> getRequiredClient(FuzeHttp::Request req) const;
 	std::string createSession(int client_id) {
+		std::println("[FuzeHttp] Creating new session for client {}...", client_id);
 		std::lock_guard<std::mutex> lock(mutex);
 		FuzeHttp::Session session{
 			.client_id = client_id,
@@ -110,6 +112,7 @@ public:
 		// 	std::chrono::duration_cast<std::chrono::minutes>(session.created_at.time_since_epoch()).count()
 		// );
 		this->sessions.emplace(key_base64, std::move(session));
+		std::println("done.");
 		return key_base64;
 	}
 	std::string createInvite(int granted_group_id) {
