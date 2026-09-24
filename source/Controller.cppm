@@ -38,6 +38,7 @@ public:
 			path_name = path_name.substr(0, path_name.length() - 1);
 
 		std::unordered_set<int> matched_views = all_views;
+		std::vector<std::string_view> sections;
 		std::string_view section;
 		size_t section_index;
 		size_t location_start_bound = 0;
@@ -52,11 +53,7 @@ public:
 			std::erase_if(matched_views, [this, &req, &section, section_index, &state](const int view_id){
 				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index, state) == false;
 			});
-			for (int view_id : matched_views) {
-				auto resolve_response = this->views.at(view_id)->resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(section, section_index, state, client);
-				if (!resolve_response)
-					return resolve_response.error();
-			}
+			sections.push_back(section);
 			if (matched_views.size() == 0)
 				break;
 			else {
@@ -94,7 +91,12 @@ public:
 			// std::cout << "No patterns were matched to path_name " << path_name << std::endl;
 			return FuzeHttp::Response{.status = http::status::not_found};
 		}
-			return views.at(id_of_view_to_keep)->executeView(state, req);
+		for (int i = 0; i < sections.size(); ++i) {
+			if (auto resolve_response = this->views.at(id_of_view_to_keep)->resolveResolverIfTheArgVariantThingForThisIndexIsResolverBase(sections[i], i, state, client);
+				!resolve_response)
+				return resolve_response.error();
+		}
+		return views.at(id_of_view_to_keep)->executeView(state, req);
 		// else if (req.method() == http::verb::get) {
 		// 	return FuzeHttp::Response{.status = http::status::ok, .file = std::filesystem::canonical(path_name.substr(1), state->document_root)};
 		// }
