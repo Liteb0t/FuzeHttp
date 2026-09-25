@@ -7,6 +7,7 @@ module;
 #include <string>
 #include <cstring>
 #include <mutex>
+#include <bits/shared_ptr.h>
 #include <variant>
 #include <vector>
 #ifdef FUZEDBI_POSTGRES
@@ -49,6 +50,10 @@ public:
 				std::cerr << "[FuzeDBI] Unknown libpq connection status" << std::endl;
 				break;
 		}
+	}
+	~Connection() {
+		if (this->db)
+			PQfinish(this->db);
 	}
 #elifdef FUZEDBI_SQLITE
 	Connection(const std::string& database_filepath) {
@@ -367,7 +372,7 @@ class QueryIterator {
 public:
 	QueryIterator(Connection* db, PGresult* result)
 	: db(db),
-	result(result),
+	result(result, PQclear), // PQclear is destructor for result
 	number_of_rows(PQntuples(result)) {
 	}
 	// ~QueryIterator() { PQclear(result); }
@@ -378,11 +383,11 @@ public:
 		return row < rhs.number_of_rows;
 	}
 	ReturnType operator*() const {
-		return db->getValue<ReturnType>(result, row);
+		return db->getValue<ReturnType>(result.get(), row);
 	}
 private:
 	Connection* db;
-	PGresult* result;
+	std::shared_ptr<PGresult> result;
 	size_t row = 0;
 	size_t number_of_rows;
 };
@@ -395,7 +400,6 @@ public:
 	stmt(stmt) {
 		this->stepStatement();
 	}
-	// ~QueryIterator() { PQclear(result); }
 	auto operator++() {
 		this->stepStatement();
 		return *this;

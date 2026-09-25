@@ -123,9 +123,9 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 }
 
 // Mysteriously doesnt link when placed in cpp file
-inline void applyOptionsToTemplates(const std::vector<ProgramOptionBase*> options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags){
+inline void applyOptionsToTemplates(const std::vector<std::unique_ptr<ProgramOptionBase>>& options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags){
 	// std::println("Adding options to templates...");
-	for (auto option : options)
+	for (auto& option : options)
 		std::println("{} :: {}", option->token, option->string());
 	for (const std::filesystem::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(document_root)) {
 		if (!std::filesystem::is_regular_file(dir_entry))
@@ -145,7 +145,7 @@ inline void applyOptionsToTemplates(const std::vector<ProgramOptionBase*> option
 		std::ofstream file_output_stream(dir_entry.path().parent_path() / out_filename);
 		std::string file_line;
 		while (std::getline(file_template_stream, file_line)) {
-			for (auto option : options) {
+			for (auto& option : options) {
 				if (option->includeInFrontend())
 					boost::replace_all(file_line, std::format("CONFIG_{}", option->token), option->string());
 			}
@@ -246,7 +246,7 @@ void writeManifest(std::unordered_map<std::string /*target*/, std::string /*etag
 		std::println("{} :: {}", target.first, target.second);
 	}
 	if (!is_read_only) {
-		for (auto option : additional_options.get()) {
+		for (const auto& option : additional_options.get()) {
 			if (option->includeInFrontend())
 				manifest_options_json_obj.emplace(option->token, option->string());
 		}
@@ -299,9 +299,9 @@ public:
 	}
 	int processOptions(int argc, char* argv[], ProgramOptions&& additional_options, const std::string& data_folder_name) {
 		additional_options.addOptions()
-			(new ProgramConstant("group_max_name", static_cast<int>(Group::MAX_NAME)))
-			(new ProgramConstant("account_max_username", static_cast<int>(Account::MAX_USERNAME)))
-			(new ProgramConstant("server_version", this->current_version));
+			("group_max_name", static_cast<int>(Group::MAX_NAME), {.is_option=false})
+			("account_max_username", static_cast<int>(Account::MAX_USERNAME), {.is_option=false})
+			("server_version", this->current_version, {.is_option=false});
 		std::error_code ec;
 		std::filesystem::path program_location = boost::dll::program_location().parent_path();
 		if (ec)
@@ -349,7 +349,7 @@ public:
 			// ("thumbnail_file_extension", boost::program_options::value<std::string>(&state_config.thumbnail_file_extension)->default_value("jpg"), "File format in which ImageMagick will create thumbnails.");
 			// ("thumbnail_size", boost::program_options::value<unsigned int>(&state_config.thumbnail_size)->default_value(150), "Maximum width and height of image thumbnails, in pixels.");
 
-		for (auto option : additional_options.get()) {
+		for (auto& option : additional_options.get()) {
 			option->addOptionToListIfOptional(universal_options);
 		}
 
@@ -416,12 +416,12 @@ public:
 		// FuzeDBI::Connection* fuze_database_interface;
 		try {
 #ifdef FUZEDBI_POSTGRES
-			this->db = new FuzeDBI::Connection(postgresql_user, postgresql_host, postgresql_port, postgresql_database_name);
+			this->db = std::make_unique<FuzeDBI::Connection>(postgresql_user, postgresql_host, postgresql_port, postgresql_database_name);
 #elifdef FUZEDBI_SQLITE
 			std::println("sqlite_database_file: {}", program_directories.sqlite_file.string());
 
 			std::filesystem::create_directories(program_directories.sqlite_file.parent_path());
-			this->db = new FuzeDBI::Connection(program_directories.sqlite_file.string());
+			this->db = std::make_unique<FuzeDBI::Connection>(program_directories.sqlite_file.string());
 #endif
 			std::println("Made database connection");
 			try {
@@ -434,7 +434,7 @@ public:
 				// std::filesystem::path template_path = std::filesystem::absolute("database_template.sql", database_location);
 				// if (!std::filesystem::exists(template_path))
 				// 	throw std::runtime_error(std::format("Database template file {} not found.", template_path.string()));
-				Migrations::firstTimeSetup(this->db, program_directories.data / "database_template.sql", program_directories.sqlite_file.string(), current_version);
+				Migrations::firstTimeSetup(this->db.get(), program_directories.data / "database_template.sql", program_directories.sqlite_file.string(), current_version);
 			}
 			std::println("Set port: {}", server_port);
 			std::println("Set threads: {}", threads);
@@ -461,7 +461,7 @@ public:
 				return 0; // we done did what we need do lol
 
 			// state
-			this->state = std::make_unique<StateType>(db);
+			this->state = std::make_unique<StateType>(db.get());
 			if (this->variable_map.count("create_owner")) {
 				std::string invite_key = state->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
 				std::println("\nUse this link to register the owner account: http://localhost:{}/invite/{}", this->server_port, invite_key);
@@ -499,7 +499,7 @@ public:
 			std::println("Database version: \t{}", database_version.value());
 			// std::println("Database version: {}", database_version.value());
 			// Migrations::makeMigrations(this->db, database_version.value(), current_version);
-			Migrations::makeNewMigrations(this->db, database_version.value(), current_version, std::move(migrations));
+			Migrations::makeNewMigrations(this->db.get(), database_version.value(), current_version, std::move(migrations));
 		}
 		else
 			std::println("Database version: \tNot applicable (database newly created)");
@@ -556,7 +556,7 @@ public:
 		// delete state;
 		// delete database_connection;
 	}
-	FuzeDBI::Connection* db;
+	std::unique_ptr<FuzeDBI::Connection> db;
 	FuzeHttp::Controller<StateType*> controller;
 	std::unique_ptr<StateType> state;
 	// StateType state = nullptr;

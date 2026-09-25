@@ -19,6 +19,7 @@ namespace Migrations {
 class Migration {
 public:
 	Migration(const std::string version_string) : version_string(version_string) {}
+	virtual ~Migration() = default;
 	virtual void makeMigration(FuzeDBI::Connection* fuze_dbi) { std::println("TEST migrating to {}", version_string); };
 	const std::string version_string;
 };
