@@ -7,7 +7,7 @@ module;
 #include <string>
 #include <cstring>
 #include <mutex>
-#include <bits/shared_ptr.h>
+#include <memory>
 #include <variant>
 #include <vector>
 #ifdef FUZEDBI_POSTGRES
@@ -114,8 +114,10 @@ public:
 					PQclear(result);
 					return return_val;
 				}
-				else
+				else {
+					PQclear(result);
 					return void();
+				}
 			case PGRES_FATAL_ERROR:
 				error_message = PQresultErrorMessage(result);
 				PQclear(result);
@@ -127,35 +129,34 @@ public:
 				PQclear(result);
 				throw std::runtime_error(std::format("[FuzeDBI] Unknown PWresStatus: {}", PQresStatus(status)));
 		}
-		PQclear(result);
 #elifdef FUZEDBI_SQLITE
 		// SQLite implementation requires the string to be reformatted. Specifically, the $1 $2 etc parameters should be replaced with question marks.
 		std::string formatted_statement = pqToSQLiteStatement(statement);
 		// std::cout << "[FuzeDBI] formatted_statement: " <<formatted_statement << std::endl;
-		sqlite3_stmt* stmt;
-		int ec = sqlite3_prepare_v2(db, formatted_statement.c_str(), -1, &stmt, NULL);
-		if (ec != SQLITE_OK) {
+		sqlite3_stmt* stmt_raw;
+		if (int ec = sqlite3_prepare_v2(db, formatted_statement.c_str(), -1, &stmt_raw, NULL); ec != SQLITE_OK) {
 			throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\"\n^-->{}", formatted_statement, sqlite3_errmsg(this->db)));
 		}
+		std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)> stmt(stmt_raw, sqlite3_finalize);
 		int param_i = 1;
 		for (std::variant<const char*, std::string, int> arg : std::initializer_list<std::variant<const char*, std::string, int>>{ args... }) {
 			if (arg.index() == static_cast<int>(PARAMETER_TYPE::CHAR_ARRAY)) {
-				sqlite3_bind_text(stmt, param_i, std::get<const char*>(arg), strlen(std::get<const char*>(arg)), SQLITE_TRANSIENT);
+				sqlite3_bind_text(stmt.get(), param_i, std::get<const char*>(arg), strlen(std::get<const char*>(arg)), SQLITE_TRANSIENT);
 			}
 			else if (arg.index() == static_cast<int>(PARAMETER_TYPE::STRING)) {
-				sqlite3_bind_text(stmt, param_i, std::get<std::string>(arg).c_str(), std::get<std::string>(arg).length(), SQLITE_TRANSIENT);
+				sqlite3_bind_text(stmt.get(), param_i, std::get<std::string>(arg).c_str(), std::get<std::string>(arg).length(), SQLITE_TRANSIENT);
 			}
 			else if (arg.index() == static_cast<int>(PARAMETER_TYPE::INT)) {
-				sqlite3_bind_int(stmt, param_i, std::get<int>(arg));
+				sqlite3_bind_int(stmt.get(), param_i, std::get<int>(arg));
 			}
 			else
 				throw std::runtime_error("Arg variant unknown");
 			param_i++;
 		}
-		switch (sqlite3_step(stmt)) {
+		switch (sqlite3_step(stmt.get())) {
 			case SQLITE_ROW: case SQLITE_DONE:
 				if constexpr (!std::is_same_v<ReturnType, void>) {
-					ReturnType return_val = getValue<ReturnType>(stmt);
+					ReturnType return_val = getValue<ReturnType>(stmt.get());
 					// throw std::runtime_error("[FuzeDBI] SQLite interface not implemented");
 					return return_val;
 				}
@@ -164,9 +165,7 @@ public:
 			default:
 				throw std::runtime_error(std::format("[FuzeDBI] SQLite error in statement \"{}\"^-->{}", formatted_statement, sqlite3_errmsg(this->db)));
 				break;
-
 		}
-		sqlite3_finalize(stmt);
 #endif
 		throw std::runtime_error("[FuzeDBI] Reached end of query function without a return value");
 	}
@@ -274,7 +273,6 @@ public:
 	template<typename T>
 	std::optional<T> getValueImpl(std::type_identity<std::optional<T>>, sqlite3_stmt* stmt, int column) {
 		if (sqlite3_column_type(stmt, column) == SQLITE_NULL) {
-			// sqlite3_finalize(stmt);
 			return {};
 		}
 		else {
@@ -397,7 +395,7 @@ class QueryIterator {
 public:
 	QueryIterator(Connection* db, sqlite3_stmt* stmt)
 	: db(db),
-	stmt(stmt) {
+	stmt(stmt, sqlite3_finalize) {
 		this->stepStatement();
 	}
 	auto operator++() {
@@ -410,11 +408,11 @@ public:
 		return !is_done;
 	}
 	ReturnType operator*() const {
-		return db->getValue<ReturnType>(stmt);
+		return db->getValue<ReturnType>(stmt.get());
 	}
 private:
 	void stepStatement() {
-		switch (sqlite3_step(this->stmt)) {
+		switch (sqlite3_step(stmt.get())) {
 			case SQLITE_DONE:
 				is_done = true;
 			case SQLITE_ROW:
@@ -426,7 +424,7 @@ private:
 	}
 	bool is_done = false;
 	Connection* db;
-	sqlite3_stmt* stmt;
+	std::shared_ptr<sqlite3_stmt> stmt;
 };
 #endif
 }; // namespace FuzeDBI

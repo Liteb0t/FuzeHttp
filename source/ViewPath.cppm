@@ -238,6 +238,7 @@ private:
 template<typename StateType>
 class Path {
 public:
+	virtual ~Path() = default;
 	virtual size_t getPathSize() const = 0;
 	// virtual Response executeView(StateType state, Request& req) = 0;
 	virtual bool attemptPathMatch(http::verb req_method, std::string_view section, size_t index) const = 0;

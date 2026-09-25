@@ -52,10 +52,7 @@ public:
 		}
 	}
 	virtual void start() {} // called after options set
-	virtual std::list<std::unique_ptr<Migrations::Migration>> addMigrations() {
-		std::list<std::unique_ptr<Migrations::Migration>> migrations;
-		return migrations;
-	}
+	virtual void addMigrations() {}
 	std::optional<Client> getClientIfExists(FuzeHttp::Request req) const {
 		auto cookie_header = req.find("Cookie");
 		if (cookie_header == req.end())
@@ -185,6 +182,17 @@ public:
 		std::println("From account {} found client {}", account_id, it->second.id);
 		return it->second;
 	}
+	void makeMigrationsIfNeeded(const std::optional<std::string> database_version, const std::string current_version) {
+		std::println("Server version:   \t{}", current_version);
+		if (database_version) {
+			std::println("Database version: \t{}", database_version.value());
+			// std::println("Database version: {}", database_version.value());
+			// Migrations::makeMigrations(this->db, database_version.value(), current_version);
+			this->migrations.makeNewMigrations(db, database_version.value(), current_version);
+		}
+		else
+			std::println("Database version: \tNot applicable (database newly created)");
+	}
 	// const std::unordered_map<std::string, std::string> busted_target_to_target;
 	// const std::unordered_set<std::string> files_generated_from_templates;
 	// virtual void start() {};
@@ -205,6 +213,7 @@ protected:
 		else
 			return {};
 	}
+	Migrations migrations;
 
 	// void createOwnerAccount(DatabaseConnection* db, const std::string& username, const std::string& password);
 

@@ -62,10 +62,10 @@ target_link_libraries(FuzeHttp
 add_subdirectory(dependencies)
 add_subdirectory(source)
 if (FUZEHTTP_EXAMPLE)
-  message("Building with example project included. Executable will be located at ${CMAKE_BINARY_DIR}/example")
+  message("[FuzeHttp] Building with example project included. Executable will be located at ${CMAKE_BINARY_DIR}/example")
   add_subdirectory(example)
 else()
-  message("NOT including example project.")
+  message("[FuzeHttp] Will not build example project.")
 endif()
 # install(
 #   TARGETS MediaboardServer

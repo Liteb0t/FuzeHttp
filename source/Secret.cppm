@@ -4,7 +4,7 @@ module;
 #include <cstring>
 #include <string>
 #include <sodium.h>
-#include <bits/unique_ptr.h>
+#include <memory>
 export module FuzeHttp.Secret;
 
 export namespace FuzeHttp {

@@ -18,7 +18,7 @@ public:
 	template<typename... Types>
 	void addPattern(http::verb req_method, typename MakeFuncPtr<StateType, typename GetHandlerArgs<TypeList<Types...>, ToHandlerArg>::type>::type view, Types... args) {
 		all_views.emplace(id_counter);
-		views.emplace(id_counter, new ViewPath<StateType, Types...>(req_method, view, std::move(args)...));
+		views.emplace(id_counter, std::make_unique<ViewPath<StateType, Types...>>(req_method, view, std::move(args)...));
 		// std::cout << "views[" << id_counter << "] length: " << views.at(id_counter)->path.size() << std::endl;
 		id_counter++;
 	}
@@ -118,7 +118,7 @@ private:
 	};
 	// StateType state;
 	std::unordered_set<int> all_views;
-	std::unordered_map<int, Path<StateType>*> views;
+	std::unordered_map<int, std::unique_ptr<Path<StateType>>> views;
 	int id_counter = 0;
 }; // class Controller
 } // namespace FuzeHttp

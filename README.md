@@ -35,23 +35,22 @@ The easiest way to get started is to set up the example project, and then work f
 Options can be defined in <code>config.ini</code> or passed in at runtime. Run the server with <code>--help</code> to see all available options. Some options are built-in, such as <code>threads</code> and <code>environment_variable_for_secret</code>.<br><br>
 Additional options can be defined. The container for additional options is instantiated in this way:<br>
 <code>FuzeHttp::ProgramOptions options;</code><br>
-We can see the three option types inherited from FuzeHttp::ProgramOptionBase in the example project's addProgramOptions function:
-<pre><code>
-options->addOptions()
-	(new ProgramOption&lt;std::string>("favicon_url", "https://fuze.page/favicon.ico"))
-	(new ProgramConstant("test_program_constant", 73))
-	(new ProgramOptionPtr("site_name", &state_config->server_name, {.default_value=std::string("FuzeHttp Example")}));
-</code></pre>
-These classes accept a template argument <code>OptionType</code>, which can be any type with an <code>operator>></code> overload. Here is a description of the three option types:
-<table>
-	<tr><th>class</th><th>description</th></tr>
-	<tr><td><code>
-				template&lt;typename OptionType><br>ProgramOption( std::string token, OptionType default_value, std::string description = "")</code></td><td>The default_value is stored within this object and can be overridden by <code>config.ini</code> or command-line arguments.</td></tr>
-	<tr><td><code>template&lt;typename OptionType><br>ProgramConstant(std::string token, OptionType default_value, std::string description = "")</code></td><td>Same as <code>ProgramOption</code> except the value is absolute - it cannot be overriden. It also does not appear in the --help command.</td></tr>
-	<tr><td><code>template&lt;typename OptionType><br>ProgramOptionPtr(std::string token, OptionType* value_ptr, Args args = {})</code><br>
-			<code>struct Args { std::optional&lt;OptionType> default_value; const char* description = ""; bool include_in_frontend = true; }</code></td><td>Same as <code>ProgramOption</code> except the value is stored elsewhere, and this object holds a raw pointer to that value.</td></tr>
-</table>
-</p>
+See the example project's addProgramOptions function:
+<pre><code>options->addOptions()
+	("favicon_url", std::string("https://fuze.page/favicon.ico"))
+	("site_name", &state_config->server_name, {.default_value=std::string("FuzeHttp Example")})
+	("test_program_constant", 73, {.is_option = false})</code></pre>
+The first parameter is the unique key.<br>
+The second can be either a value or a pointer.<br>
+The third parameter takes an optional struct:
+<pre><code>template<class OptionType>
+struct OptionArgs {
+	std::optional&lt;std::remove_pointer_t&lt;OptionType>> default_value;
+	const char* description = "";
+	bool include_in_frontend = true;
+	bool is_option = true;
+};</code></pre>
+These classes accept a template argument <code>OptionType</code>, which can be any type with an <code>operator>></code> overload.</p>
 <h2>Frontend</h2>
 <p>
 Unlike <abbr title="Model-View-Controller">MVC</abbr> frameworks, FuzeHttp does not provide live <abbr title="Server-side rendering">SSR</abbr>.

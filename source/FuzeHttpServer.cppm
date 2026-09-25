@@ -493,16 +493,8 @@ public:
 	}
 
 	void run() {
-		auto migrations = state->addMigrations();
-		std::println("Server version:   \t{}", this->current_version);
-		if (database_version) {
-			std::println("Database version: \t{}", database_version.value());
-			// std::println("Database version: {}", database_version.value());
-			// Migrations::makeMigrations(this->db, database_version.value(), current_version);
-			Migrations::makeNewMigrations(this->db.get(), database_version.value(), current_version, std::move(migrations));
-		}
-		else
-			std::println("Database version: \tNot applicable (database newly created)");
+		state->addMigrations();
+		state->makeMigrationsIfNeeded(database_version, current_version);
 		state->start();
 
 		auto address = boost::asio::ip::make_address("127.0.0.1");
