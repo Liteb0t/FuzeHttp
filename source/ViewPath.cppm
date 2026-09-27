@@ -120,9 +120,12 @@ public:
 		std::println();
 		Response res = std::apply(view_func, std::tuple_cat(std::tie(state, req), /* extra_args */ view_args));
 		if (set_session_for_client_id) {
+			std::println("Setting cookie...");
 			std::string session_id_base64 = state->createSession(set_session_for_client_id.value());
 			res.headers.insert({"Set-Cookie", formatCookie(session_id_base64)});
 		}
+		else
+			std::println("Not setting cookie...");
 		if (res.file) { // cache controle
 			if (auto early_response = setCacheControl(state, res, req))
 				return early_response.value();
