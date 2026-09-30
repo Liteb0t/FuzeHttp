@@ -125,8 +125,10 @@ std::optional<ProgramDirectories> getProgramDirectories(std::filesystem::path pr
 // Mysteriously doesnt link when placed in cpp file
 inline void applyOptionsToTemplates(const std::vector<std::unique_ptr<ProgramOptionBase>>& options, const std::filesystem::path& document_root, const std::unordered_map<std::string /*target*/, std::string /*etag*/>& manifest_frontend_etags){
 	// std::println("Adding options to templates...");
-	for (auto& option : options)
-		std::println("{} :: {}", option->token, option->string());
+	for (auto& option : options) {
+		if (option->includeInFrontend())
+			std::println("{} :: {}", option->token, option->string());
+	}
 	for (const std::filesystem::directory_entry& dir_entry : std::filesystem::recursive_directory_iterator(document_root)) {
 		if (!std::filesystem::is_regular_file(dir_entry))
 			continue;
@@ -195,6 +197,7 @@ void writeManifest(std::unordered_map<std::string /*target*/, std::string /*etag
 	if (is_read_only) std::println("APPDIR found. Will not write new manifest.json");
 	else              std::println("APPDIR not found, but that's okay. Will write manifest.json");
 	if (std::filesystem::exists(manifest_file)) {
+		std::println("Foound manifest file");
 		std::ifstream manifest_json_in(manifest_file);
 		std::string file_line, json_as_str;
 		while (std::getline(manifest_json_in, file_line))
@@ -214,6 +217,9 @@ void writeManifest(std::unordered_map<std::string /*target*/, std::string /*etag
 		}
 		old_combined_hash = manifest_obj.at("combined_hash").as_string();
 	}
+	else
+
+		std::println("NOT Foound manifest file");
 	// create manifest JSON OBJECT
 	// All frontend files except GENERATED are added to manifest. To detect changes the manifest JSON in memory and the previously used one in the filesystem are hashed; if the hashes are not equal, we know there was a change.
 	boost::json::object manifest_obj, manifest_frontend_json_obj, manifest_options_json_obj;
@@ -350,71 +356,66 @@ public:
 			// ("thumbnail_size", boost::program_options::value<unsigned int>(&state_config.thumbnail_size)->default_value(150), "Maximum width and height of image thumbnails, in pixels.");
 
 		for (auto& option : additional_options.get()) {
-			option->addOptionToListIfOptional(universal_options);
+			if (option->commandLineOnly())
+				option->addOptionToListIfOptional(command_line_specific_options);
+			else
+				option->addOptionToListIfOptional(universal_options);
 		}
 
 		boost::program_options::options_description command_line_options;
 		command_line_options.add(command_line_specific_options).add(universal_options);
-		std::filesystem::path config_file_path;
 
-		// boost::program_options::variables_map this->variable_map;
+		boost::program_options::variables_map variable_map;
 		try {
-			store(boost::program_options::parse_command_line(argc, argv, command_line_options), this->variable_map);
-			boost::program_options::notify(this->variable_map);
+			store(boost::program_options::parse_command_line(argc, argv, command_line_options), variable_map);
+			boost::program_options::notify(variable_map);
 
-			if (this->variable_map.count("config"))
+			if (variable_map.count("config"))
 				config_file = config_file_str;
-			config_file_path = getConfigDirectory(program_location, config_file, data_directory_config, data_folder_name);
+			std::filesystem::path config_file_path = getConfigDirectory(program_location, config_file, data_directory_config, data_folder_name);
 			// Load config.ini
 			std::ifstream config_file_ifstream(config_file_path.string());
 			if (config_file_ifstream) {
 				std::println("Loaded config file {}", config_file_path.string());
-				store(parse_config_file(config_file_ifstream, universal_options), this->variable_map);
-				boost::program_options::notify(this->variable_map);
+				store(parse_config_file(config_file_ifstream, universal_options), variable_map);
+				boost::program_options::notify(variable_map);
 			}
 			else {
 				std::println("Could not find config.ini file. Default options will be used.");
 			}
-		}
-		catch (const std::exception& exception) {
-			std::println("{}", exception.what());
-			return 1;
-		}
 
-		if (this->variable_map.count("help")) {
-			std::cout << command_line_options << std::endl;
-			return 2;
-		}
-		if (this->variable_map.count("version")) {
-			std::println("{}", current_version);
-			return 2;
-		}
-		if (this->variable_map.count("data_directory"))
-			data_directory_config = data_directory_str;
-		if (this->variable_map.count("media_directory")) {
-			std::println("media_directory config option found");
-			media_directory_config = media_directory_str;
-		}
-		else
-			std::println("media_directory config option not found");
-		if (this->variable_map.count("sqlite_database_file"))
-			sqlite_database_file_config = sqlite_database_file_str;
-		std::optional<ProgramDirectories> program_directories_opt = getProgramDirectories(program_location, data_directory_config, media_directory_config, sqlite_database_file_config, data_folder_name);
-		if (!program_directories_opt) {
-			std::println(std::cerr, "Mediaboard setup was cancelled by the user.");
-			return 3;
-		}
-		else
-			program_directories = program_directories_opt.value();
-		std::println("Data:\t {}", program_directories.data.string());
-#ifdef FUZEDBI_SQLITE
-		std::println("SQLite:\t {}", program_directories.sqlite_file.string());
-#endif
-		std::println("Media:\t {}", program_directories.media.string());
+			if (variable_map.count("help")) {
+				std::cout << command_line_options << std::endl;
+				return 2;
+			}
+			if (variable_map.count("version")) {
+				std::println("{}", current_version);
+				return 2;
+			}
+			if (variable_map.count("data_directory"))
+				data_directory_config = data_directory_str;
+			if (variable_map.count("media_directory")) {
+				std::println("media_directory config option found");
+				media_directory_config = media_directory_str;
+			}
+			else
+				std::println("media_directory config option not found");
+			if (variable_map.count("sqlite_database_file"))
+				sqlite_database_file_config = sqlite_database_file_str;
+			std::optional<ProgramDirectories> program_directories_opt = getProgramDirectories(program_location, data_directory_config, media_directory_config, sqlite_database_file_config, data_folder_name);
+			if (!program_directories_opt) {
+				std::println(std::cerr, "Mediaboard setup was cancelled by the user.");
+				return 3;
+			}
+			else
+				program_directories = program_directories_opt.value();
+			std::println("Data:\t {}", program_directories.data.string());
+	#ifdef FUZEDBI_SQLITE
+			std::println("SQLite:\t {}", program_directories.sqlite_file.string());
+	#endif
+			std::println("Media:\t {}", program_directories.media.string());
 
-		std::println("FuzeDBI interface: {}", FUZEDBI_DB);
-		// FuzeDBI::Connection* fuze_database_interface;
-		try {
+			std::println("FuzeDBI interface: {}", FUZEDBI_DB);
 #ifdef FUZEDBI_POSTGRES
 			this->db = std::make_unique<FuzeDBI::Connection>(postgresql_user, postgresql_host, postgresql_port, postgresql_database_name);
 #elifdef FUZEDBI_SQLITE
@@ -457,17 +458,20 @@ public:
 			writeManifest(manifest_frontend_etags, &busted_target_to_target, frontend_etag, document_root, program_directories.data / "manifest.json", additional_options);
 			std::print("Populating files_generated_from_templates... ");
 			std::unordered_set<std::string> files_generated_from_templates = getFilesGeneratedFromTemplates(document_root);
-			if (this->variable_map.count("generate_manifest"))
+			if (variable_map.count("generate_manifest"))
 				return 0; // we done did what we need do lol
 
 			// state
 			this->state = std::make_unique<StateType>(db.get());
-			if (this->variable_map.count("create_owner")) {
+			if (variable_map.count("create_owner")) {
 				std::string invite_key = state->createInvite(static_cast<int>(BUILTIN_GROUPS::OWNER));
 				std::println("\nUse this link to register the owner account: http://localhost:{}/invite/{}", this->server_port, invite_key);
 			}
 			else if (!state->ownerExists())
 				std::println("\nERROR: No owner found. Restart the application with --create_owner");
+
+			state->program_location = program_location;
+			state->server_version = current_version;
 			state->document_root = document_root;
 			state->setSecretFromEnvironmentVariable(environment_variable_for_secret, secret_required);
 			state->media_location = program_directories.media;
@@ -484,9 +488,22 @@ public:
 			// this->state = std::move(state);
 			// std::println("frondend_etag: {}", state->frontend_etag);
 			state->parser_body_size_limit_mb = parser_body_size_limit_mb;
+
+			for (auto& option : additional_options.get()) {
+				if (option->executeCallbackIfCallback(variable_map, state.get()))
+					return 0;
+			}
 		}
 		catch (const std::exception& exception) {
-			std::println(std::cerr, "An error occured during startup: {}", exception.what());
+			std::println(std::cerr, "An exception was thrown during startup: {}", exception.what());
+			return 1;
+		}
+		catch (const char* error_text) {
+			std::println(std::cerr, "An error occured during startup: {}", error_text);
+			return 1;
+		}
+		catch (const std::string error_text) {
+			std::println(std::cerr, "An error occured during startup: {}", error_text);
 			return 1;
 		}
 		return -1;
@@ -494,7 +511,7 @@ public:
 
 	void run() {
 		state->addMigrations();
-		state->makeMigrationsIfNeeded(database_version, current_version);
+		state->makeMigrationsIfNeeded(database_version);
 		state->start();
 
 		auto address = boost::asio::ip::make_address("127.0.0.1");
@@ -555,7 +572,6 @@ public:
 	ProgramDirectories program_directories;
 	std::filesystem::path document_root;
 	// std::filesystem::path media_location;
-	boost::program_options::variables_map variable_map;
 	unsigned short server_port = 8300;
 	std::optional<std::string> database_version;
 	const std::string current_version;

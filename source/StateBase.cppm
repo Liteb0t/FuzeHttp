@@ -182,13 +182,13 @@ public:
 		std::println("From account {} found client {}", account_id, it->second.id);
 		return it->second;
 	}
-	void makeMigrationsIfNeeded(const std::optional<std::string> database_version, const std::string current_version) {
-		std::println("Server version:   \t{}", current_version);
+	void makeMigrationsIfNeeded(const std::optional<std::string> database_version) {
+		std::println("Server version:   \t{}", server_version);
 		if (database_version) {
 			std::println("Database version: \t{}", database_version.value());
 			// std::println("Database version: {}", database_version.value());
 			// Migrations::makeMigrations(this->db, database_version.value(), current_version);
-			this->migrations.makeNewMigrations(db, database_version.value(), current_version);
+			this->migrations.makeNewMigrations(db, database_version.value(), server_version);
 		}
 		else
 			std::println("Database version: \tNot applicable (database newly created)");
@@ -198,6 +198,8 @@ public:
 	// virtual void start() {};
 	// FuzeHttp::Server* server;
 	FuzeDBI::Connection* db;
+	std::string server_version;
+	std::filesystem::path program_location;
 	std::filesystem::path document_root;
 	std::filesystem::path media_location;
 	std::unordered_map<std::string /*target*/, std::string /*etag*/> manifest_frontend_etags;
@@ -377,7 +379,6 @@ private:
 	WebsocketSession::~WebsocketSession() {
 		// Remove this session from the list of active sessions
 		state_->websocketLeave(this);
-		// state_->main_board()->removeListenerFromThread(this, this->tracking_thread);
 	}
 	template<class Body, class Allocator>
 	void WebsocketSession::run(http::request<Body, http::basic_fields<Allocator>> req) {

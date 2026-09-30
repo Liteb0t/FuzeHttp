@@ -10,6 +10,7 @@ module;
 #include <string>
 #include <type_traits>
 export module FuzeHttp.ProgramOptions;
+import FuzeHttp.State;
 
 export namespace FuzeHttp {
 template<typename T>
@@ -37,9 +38,13 @@ public:
 	constexpr ProgramOptionBase(std::string token) :token(token) {}
 	const std::string token;
 	virtual void addOptionToListIfOptional(boost::program_options::options_description& options) = 0;
+	virtual bool executeCallbackIfCallback(boost::program_options::variables_map& variable_map, FuzeHttp::StateBase* state) {
+		return false;
+	}
 	virtual std::string string() const = 0;
 	virtual bool isOption() const = 0;
 	virtual bool includeInFrontend() const { return true; };
+	virtual bool commandLineOnly() const { return false; }
 };
 template<typename T>
 concept IStreamAble = requires (std::istream& istream, T& t) { istream >> t; };
@@ -47,6 +52,36 @@ template<typename T>
 concept ValidProgramOption = !std::is_pointer_v<T> && IStreamAble<T>;
 template<typename T>
 concept ValidProgramOptionPtr = std::is_pointer_v<T> && IStreamAble<std::remove_pointer_t<T>>;
+
+template<class StateType>
+class ProgramCallback : public ProgramOptionBase {
+public:
+	using CallbackType = std::function<void(StateType*)>;
+	ProgramCallback(std::string token, CallbackType callback, const char* description = "") :
+		ProgramOptionBase(token), callback(callback), description(description) {
+	}
+	virtual void addOptionToListIfOptional(boost::program_options::options_description& options) override {
+		options.add_options()
+			(this->token.c_str(), this->description);
+	}
+	virtual bool executeCallbackIfCallback(boost::program_options::variables_map& variable_map, FuzeHttp::StateBase* state) override {
+		if (variable_map.count(this->token)) {
+			std::invoke(callback, static_cast<StateType*>(state));
+			return true;
+		}
+		else
+			return false;
+	}
+	virtual std::string string() const override {
+		throw "[ProgramCallback] Cannot convert callback type to string";
+	}
+	virtual bool isOption() const override { return true; };
+	virtual bool commandLineOnly() const override { return true; }
+	virtual bool includeInFrontend() const override { return false; };
+private:
+	CallbackType callback;
+	const char* description;
+};
 
 template<typename OptionType>
 requires (ValidProgramOption<OptionType>)
@@ -61,7 +96,7 @@ public:
 	virtual void addOptionToListIfOptional(boost::program_options::options_description& options) override {
 		if (!is_option)
 			return;
-		options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), boost::program_options::value<OptionType>(value.get())->default_value(default_value), this->description ? description.value().c_str() : "")));
+		options.add(boost::make_shared<boost::program_options::option_description>( boost::program_options::option_description(this->token.c_str(), boost::program_options::value<OptionType>(value.get())->default_value(default_value), this->description)));
 	}
 	virtual std::string string() const override {
 		return valueAsString(*value);
@@ -71,7 +106,7 @@ private:
 	bool is_option;
 	std::shared_ptr<OptionType> value;
 	OptionType default_value;
-	const std::optional<const std::string> description;
+	const char* description;
 };
 
 template<typename OptionPtr>
@@ -144,6 +179,10 @@ public:
 	requires (ValidProgramOptionPtr<OptionPtr>)
 	void add(std::string token, OptionPtr value_ptr, OptionArgs<OptionPtr> args = {}) {
 		this->addOption(std::make_unique<ProgramOptionPtr<OptionPtr>>(token, value_ptr, args));
+	}
+	template<class StateType>
+	void add(std::string token, typename ProgramCallback<StateType>::CallbackType callback, const char* description = "") {
+		this->addOption(std::make_unique<ProgramCallback<StateType>>(token, callback, description));
 	}
 
 	void addOption(std::unique_ptr<ProgramOptionBase> program_option) {
