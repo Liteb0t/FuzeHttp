@@ -502,41 +502,58 @@ public:
 			std::println(std::cerr, "An error occured during startup: {}", error_text);
 			return 1;
 		}
-		catch (const std::string error_text) {
+		catch (const std::string& error_text) {
 			std::println(std::cerr, "An error occured during startup: {}", error_text);
 			return 1;
 		}
 		return -1;
 	}
 
-	void run() {
-		state->addMigrations();
-		state->makeMigrationsIfNeeded(database_version);
-		state->start();
-
-		auto address = boost::asio::ip::make_address("127.0.0.1");
-		// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
+	int run() {
 		boost::asio::io_context io_context;
-			// Create and launch a listening port
-		std::println("Creating a listening port...");
-		std::make_shared<Listener<StateType, WebsocketSessionType>>(
-			io_context,
-			boost::asio::ip::tcp::endpoint{address, server_port},
-			state.get(),
-			&controller
-		)->run();
-
-		// Capture SIGINT and SIGTERM to perform a clean shutdown
-		std::println("Setting signals...");
 		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-		signals.async_wait(
-			[&io_context](boost::system::error_code const&, int) {
-				// Stop the io_context. This will cause run()
-				// to return immediately, eventually destroying the
-				// io_context and any remaining handlers in it.
-				io_context.stop();
-			}
-		);
+		try {
+			state->addMigrations();
+			state->makeMigrationsIfNeeded(database_version);
+			state->start();
+
+			auto address = boost::asio::ip::make_address("127.0.0.1");
+			// The io_context is required for all I/O - see https://www.boost.org/doc/libs/latest/doc/html/boost_asio/overview/basics.html
+				// Create and launch a listening port
+			std::println("Creating a listening port...");
+			std::make_shared<Listener<StateType, WebsocketSessionType>>(
+				io_context,
+				boost::asio::ip::tcp::endpoint{address, server_port},
+				state.get(),
+				&controller
+			)->run();
+
+			// Capture SIGINT and SIGTERM to perform a clean shutdown
+			std::println("Setting signals...");
+			signals.async_wait(
+				[&io_context](boost::system::error_code const& ec, int) {
+					std::println("io_context returned error: {}", ec.value());
+					std::println("----Error Category: {}", ec.category().name());
+					std::println("----Error message: {}", ec.message());
+					// Stop the io_context. This will cause run()
+					// to return immediately, eventually destroying the
+					// io_context and any remaining handlers in it.
+					io_context.stop();
+				}
+			);
+		}
+		catch (const std::exception& exception) {
+			std::println(std::cerr, "An exception was thrown during startup phase 2: {}", exception.what());
+			return 1;
+		}
+		catch (const char* error_text) {
+			std::println(std::cerr, "An error occured during startup phase 2: {}", error_text);
+			return 1;
+		}
+		catch (const std::string& error_text) {
+			std::println(std::cerr, "An error occured during startup phase 2: {}", error_text);
+			return 1;
+		}
 
 		// Run the I/O service on the requested number of threads
 		std::println("Running the I/O service...");
@@ -562,8 +579,7 @@ public:
 		else
 			std::println("All {} threads closed.", threads);
 		state->clearExpiredSessions();
-		// delete state;
-		// delete database_connection;
+		return 0;
 	}
 	std::unique_ptr<FuzeDBI::Connection> db;
 	FuzeHttp::Controller<StateType*> controller;
