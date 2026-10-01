@@ -27,6 +27,7 @@ target_sources(FuzeHttp
       ProgramOptions.cppm
       StateBase.cppm
       ViewPath.cppm
+      WebsocketSession.cppm
     FILE_SET headers
     TYPE HEADERS
     BASE_DIRS

@@ -26,6 +26,7 @@ import FuzeHttp.PermissionObject;
 import FuzeHttp.ProgramOptions;
 import FuzeHttp.State;
 import FuzeHttp.Utils;
+import FuzeHttp.WebsocketSession;
 
 namespace FuzeHttp {
 	struct ProgramDirectories {
