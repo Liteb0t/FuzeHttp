@@ -196,6 +196,7 @@ public:
 	std::unordered_set<std::string> files_generated_from_templates;
 	std::string frontend_etag; // Changes when any frontend file changes, ensuring client refreshes cache.
 	unsigned int parser_body_size_limit_mb;
+	boost::asio::io_context* io_context;
 protected:
 	const std::optional<Client> getClientFromSession(const std::string& session_id_base64) const {
 		std::lock_guard<std::mutex> lock(mutex);

@@ -512,6 +512,7 @@ public:
 
 	int run() {
 		boost::asio::io_context io_context;
+		state->io_context = &io_context;
 		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
 		try {
 			state->addMigrations();
@@ -533,9 +534,13 @@ public:
 			std::println("Setting signals...");
 			signals.async_wait(
 				[&io_context](boost::system::error_code const& ec, int) {
-					std::println("io_context returned error: {}", ec.value());
-					std::println("----Error Category: {}", ec.category().name());
-					std::println("----Error message: {}", ec.message());
+					if (ec == boost::asio::error::operation_aborted)
+						std::println("received boost::asio::error::operation_aborted");
+					else {
+						std::println(std::cerr, "io_context returned error: {}", ec.value());
+						std::println(std::cerr, "----Error Category: {}", ec.category().name());
+						std::println(std::cerr, "----Error message: {}", ec.message());
+					}
 					// Stop the io_context. This will cause run()
 					// to return immediately, eventually destroying the
 					// io_context and any remaining handlers in it.
