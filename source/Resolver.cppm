@@ -1,3 +1,5 @@
+// Copyright (c) 2026, Fuze.page
+// Fuze Human-oriented License v1
 module;
 #include "beast.hpp"
 #include <any>
@@ -7,7 +9,9 @@ module;
 #include <string_view>
 #include <format>
 export module FuzeHttp.Resolver;
-export import FuzeHttp.Core;
+export import FuzeHttp.Client;
+// export import FuzeHttp.Core;
+export import FuzeHttp.Response;
 
 export namespace FuzeHttp {
 template<typename Key>

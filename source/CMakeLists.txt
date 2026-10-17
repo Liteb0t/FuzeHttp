@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 
 target_sources(FuzeHttp
-  # PRIVATE
+  PRIVATE
+    buildResponse.cpp
     # FuzeHttpServer.cpp
     # WebsocketSession.cpp
   PUBLIC
@@ -9,6 +10,7 @@ target_sources(FuzeHttp
     BASE_DIRS
       ${CMAKE_CURRENT_SOURCE_DIR}
     FILES
+      # BuildResponse.cppm
       Client.cppm
       Controller.cppm
       FuzeDBI.cppm
@@ -22,7 +24,9 @@ target_sources(FuzeHttp
       PermissionSetting.cppm
       PermissionCollection.cppm
       PermissionObject.cppm
+      Request.cppm
       Resolver.cppm
+      Response.cppm
       Secret.cppm
       ProgramOptions.cppm
       StateBase.cppm
@@ -33,7 +37,8 @@ target_sources(FuzeHttp
     BASE_DIRS
       ${CMAKE_CURRENT_SOURCE_DIR}
     FILES
+      # buildResponse.hpp
       # Controller.hpp
-      Request.hpp
+      # Request.hpp
       # ViewPath.hpp
 )

@@ -4,9 +4,10 @@ module;
 // #include "FuzeHttp.hpp"
 // #include "FuzeHttpServer.hpp"
 // #include "FuzeHttpUtils.hpp"
-#include "Request.hpp"
+// #include "Request.hpp"
 // #include "State_WebsocketSession_declarations.hpp"
 // #include "WebsocketSession.hpp"
+#include <boost/asio/io_context.hpp>
 #include <boost/json/object.hpp>
 #include <boost/json/serialize.hpp>
 #include <filesystem>
@@ -19,6 +20,7 @@ export module FuzeHttp.State;
 import FuzeDBI;
 import FuzeHttp.Core;
 import FuzeHttp.Migrations;
+import FuzeHttp.Request;
 import FuzeHttp.Secret;
 import FuzeHttp.Utils;
 
@@ -42,9 +44,9 @@ public:
 	}
 	virtual void start() {} // called after options set
 	virtual void addMigrations() {}
-	std::optional<Client> getClientIfExists(FuzeHttp::Request req) const {
-		auto cookie_header = req.find("Cookie");
-		if (cookie_header == req.end())
+	std::optional<Client> getClientIfExists(FuzeHttp::_Request::MessageType& message) const {
+		auto cookie_header = message.find("Cookie");
+		if (cookie_header == message.end())
 			return {};
 		std::string cookie = cookie_header->value();
 		std::string session_id_base64 = cookie.substr(cookie.find("=")+1);

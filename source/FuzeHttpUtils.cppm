@@ -8,6 +8,7 @@ module;
 #include <boost/json.hpp>
 #include <boost/program_options.hpp>
 #include <boost/smart_ptr.hpp>
+#include <boost/beast/core/string.hpp>
 #include <filesystem>
 #include <fstream>
 #include <print>
@@ -71,5 +72,51 @@ std::string writeManifestJson(const std::filesystem::path& manifest_file, const 
 	std::string json_as_str = boost::json::serialize(manifest_obj);
 	manifest_json_out.write(json_as_str.c_str(), json_as_str.length());
 	return json_as_str;
+}
+const std::string_view getMimeType(const std::string& path) {
+	using boost::beast::iequals;
+	std::string_view ext = [&path] {
+		auto const pos = path.rfind(".");
+		if(pos == std::string_view::npos)
+			return std::string_view{};
+		return std::string_view(path).substr(pos);
+	}();
+	if(iequals(ext, ".aac"))  return "audio/aac";
+	if(iequals(ext, ".flac")) return "audio/flac";
+	if(iequals(ext, ".mid"))  return "audio/midi";
+	if(iequals(ext, ".midi")) return "audio/midi";
+	if(iequals(ext, ".mp3"))  return "audio/mpeg";
+	if(iequals(ext, ".oga"))  return "audio/ogg";
+	if(iequals(ext, ".ogx"))  return "audio/ogg";
+	if(iequals(ext, ".opus")) return "audio/ogg";
+	if(iequals(ext, ".js"))   return "application/javascript";
+	if(iequals(ext, ".json")) return "application/json";
+	if(iequals(ext, ".xml"))  return "application/xml";
+	if(iequals(ext, ".swf"))  return "application/x-shockwave-flash";
+	if(iequals(ext, ".avif")) return "image/avif";
+	if(iequals(ext, ".bmp"))  return "image/bmp";
+	if(iequals(ext, ".gif"))  return "image/gif";
+	if(iequals(ext, ".heic")) return "image/heic";
+	if(iequals(ext, ".heics"))return "image/heic";
+	if(iequals(ext, ".ico"))  return "image/vnd.microsoft.icon";
+	if(iequals(ext, ".jpe"))  return "image/jpeg";
+	if(iequals(ext, ".jpeg")) return "image/jpeg";
+	if(iequals(ext, ".jpg"))  return "image/jpeg";
+	if(iequals(ext, ".jxl"))  return "image/jxl";
+	if(iequals(ext, ".png"))  return "image/png";
+	if(iequals(ext, ".tiff")) return "image/tiff";
+	if(iequals(ext, ".tif"))  return "image/tiff";
+	if(iequals(ext, ".svg"))  return "image/svg+xml";
+	if(iequals(ext, ".svgz")) return "image/svg+xml";
+	if(iequals(ext, ".webp")) return "image/webp";
+	if(iequals(ext, ".htm"))  return "text/html";
+	if(iequals(ext, ".html")) return "text/html";
+	if(iequals(ext, ".php"))  return "text/html";
+	if(iequals(ext, ".css"))  return "text/css";
+	if(iequals(ext, ".txt"))  return "text/plain";
+	if(iequals(ext, ".flv"))  return "video/x-flv";
+	if(iequals(ext, ".mp4"))  return "video/mp4";
+	if(iequals(ext, ".webm"))  return "video/webm";
+	return "application/text";
 }
 }; // namespace FuzeHttp

@@ -1,6 +1,8 @@
+// Copyright (c) 2026, Fuze.page
+// Fuze Human-oriented License v1
 module;
 #include "beast.hpp"
-#include "Request.hpp"
+// #include "Request.hpp"
 // #include "ViewPath.hpp"
 #include <unordered_set>
 // #include <iostream>
@@ -8,6 +10,8 @@ module;
 export module FuzeHttp.Controller;
 export import FuzeHttp.Client;
 import FuzeHttp.Core;
+import FuzeHttp.Request;
+import FuzeHttp.Response;
 import FuzeHttp.ViewPath;
 
 export namespace FuzeHttp {
@@ -23,19 +27,16 @@ public:
 		id_counter++;
 	}
 
-	Response matchPathAndExecute(StateType state, Request& req) {
-		if (!req.target().starts_with('/'))
+	Response matchPathAndExecute(StateType state, Request req) {
+		if (!req.pathName().starts_with('/'))
 			return Response{.status = http::status::bad_request};
 		// for (int id : all_views)
 		// 	views.at(id)->clearResolvedObject();
+		std::string_view kebab_path_name = req.pathName(); // first and last '/' removed.
 
-		std::optional<Client> client = state->getClientIfExists(req);
-
-		std::string decoded_url = FuzeHttp::getDecodedURL(req.target());
-		std::string_view path_name = FuzeHttp::getPathName(decoded_url);
-		std::println("[Controller] {} {}", std::string(req.method_string()), path_name);
-		if (path_name.ends_with('/'))
-			path_name = path_name.substr(0, path_name.length() - 1);
+		std::println("[Controller] {} {}", std::string(req.message.method_string()), req.pathName());
+		if (kebab_path_name.ends_with('/'))
+			kebab_path_name = kebab_path_name.substr(0, kebab_path_name.length() - 1);
 
 		std::unordered_set<int> matched_views = all_views;
 		std::vector<std::string_view> sections;
@@ -43,15 +44,15 @@ public:
 		size_t section_index;
 		size_t location_start_bound = 0;
 		size_t location_end_bound;
-		for (section_index = 0; location_start_bound < path_name.size(); section_index++) {
+		for (section_index = 0; location_start_bound < kebab_path_name.length(); section_index++) {
 			location_start_bound++;
-			location_end_bound = path_name.find('/', location_start_bound);
+			location_end_bound = req.pathName().find('/', location_start_bound);
 			if (location_end_bound == std::string_view::npos)
-				section = path_name.substr(location_start_bound);
+				section = kebab_path_name.substr(location_start_bound);
 			else
-				section = path_name.substr(location_start_bound, location_end_bound - location_start_bound);
+				section = kebab_path_name.substr(location_start_bound, location_end_bound - location_start_bound);
 			std::erase_if(matched_views, [this, &req, &section, section_index](const int view_id){
-				return this->views.at(view_id)->attemptPathMatch(req.method(), section, section_index) == false;
+				return this->views.at(view_id)->attemptPathMatch(req.message.method(), section, section_index) == false;
 			});
 			sections.push_back(section);
 			if (matched_views.size() == 0)
@@ -88,18 +89,18 @@ public:
 		else if (matched_views.size() == 1)
 			id_of_view_to_keep = *matched_views.begin();
 		else {
-			// std::cout << "No patterns were matched to path_name " << path_name << std::endl;
+			// std::cout << "No patterns were matched to req.pathName() " << req.pathName() << std::endl;
 			return FuzeHttp::Response{.status = http::status::not_found};
 		}
 		std::unique_ptr<TemporarySecretary<StateType>> temporary_secretary = views.at(id_of_view_to_keep)->createTemporarySecretary();
 		for (int i = 0; i < sections.size(); ++i) {
-			if (auto resolve_response = temporary_secretary->resolve(sections[i], i, state, client);
+			if (auto resolve_response = temporary_secretary->resolve(sections[i], i, state, req.client());
 				!resolve_response)
 				return resolve_response.error();
 		}
 		return temporary_secretary->executeView(state, req);
 		// else if (req.method() == http::verb::get) {
-		// 	return FuzeHttp::Response{.status = http::status::ok, .file = std::filesystem::canonical(path_name.substr(1), state->document_root)};
+		// 	return FuzeHttp::Response{.status = http::status::ok, .file = std::filesystem::canonical(req.pathName().substr(1), state->document_root)};
 		// }
 	}
 	EasyPatternAdder addPatterns() { return EasyPatternAdder(this); }

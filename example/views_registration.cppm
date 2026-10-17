@@ -4,7 +4,7 @@ module;
 // #include "views_registration.hpp"
 // #include "FuzeHttp.hpp"
 // #include "PermissionObject.hpp"
-#include "Request.hpp"
+// #include "Request.hpp"
 #include "sodium.h"
 #include <boost/beast/http/status.hpp>
 #include <boost/json.hpp>
@@ -13,18 +13,18 @@ export module FuzeHttp.Example.Views_registration;
 import FuzeHttp.Example.State;
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.Request;
+import FuzeHttp.Response;
 import FuzeDBI;
 
 export namespace FuzeHttp::Example {
 FuzeHttp::Response requestNewAccountParameters(shared_state* state, FuzeHttp::Request req) {
-	boost::json::object req_json;
 	boost::json::string username_j;
 	std::optional<std::string> invite_key;
 	try {
-		req_json = boost::json::parse(req.body()).as_object();
-		username_j = req_json.at("username").as_string();
-		if (boost::json::object::const_iterator invite_key_it = req_json.find("invite"); invite_key_it != req_json.end())
-			invite_key = req_json.at("invite").as_string().c_str();
+		username_j = req.json().at("username").as_string();
+		if (boost::json::object::const_iterator invite_key_it = req.json().find("invite"); invite_key_it != req.json().end())
+			invite_key = req.json().at("invite").as_string().c_str();
 	}
 	catch(const std::exception& e) {
 		return FuzeHttp::Response{.status = http::status::internal_server_error, .error_message = std::format("[registerAccount] {}", e.what())};
@@ -81,18 +81,16 @@ FuzeHttp::Response requestNewAccountParameters(shared_state* state, FuzeHttp::Re
 }
 
 FuzeHttp::Response createNewAccount(shared_state* state, FuzeHttp::Request req) {
-	boost::json::object req_json;
 	boost::json::string username_j, password_hash_base64, intermediate_salt_base64;
 	std::optional<std::string> invite_key;
 	std::optional<int> invite_granted_group_id;
 	std::cout << "createNewAccount called" << std::endl;
 	try {
-		req_json = boost::json::parse(req.body()).as_object();
-		username_j = req_json.at("username").as_string();
-		intermediate_salt_base64 = req_json.at("intermediate_salt_base64").as_string();
-		password_hash_base64 = req_json.at("password_hash_base64").as_string();
-		if (boost::json::object::const_iterator invite_key_it = req_json.find("invite"); invite_key_it != req_json.end())
-			invite_key = req_json.at("invite").as_string().c_str();
+		username_j = req.json().at("username").as_string();
+		intermediate_salt_base64 = req.json().at("intermediate_salt_base64").as_string();
+		password_hash_base64 = req.json().at("password_hash_base64").as_string();
+		if (boost::json::object::const_iterator invite_key_it = req.json().find("invite"); invite_key_it != req.json().end())
+			invite_key = req.json().at("invite").as_string().c_str();
 	}
 	catch(const std::exception& e) {
 		std::cerr << "JSON error" << std::endl;
@@ -148,11 +146,9 @@ FuzeHttp::Response createNewAccount(shared_state* state, FuzeHttp::Request req) 
 }
 
 FuzeHttp::Response requestLoginParameters(shared_state* state, FuzeHttp::Request req) {
-	boost::json::value req_json;
 	boost::json::string username_j;
 	try {
-		req_json = boost::json::parse(req.body());
-		username_j = req_json.at("username").as_string();
+		username_j = req.json().at("username").as_string();
 	}
 	catch(const std::exception& e) {
 		return FuzeHttp::Response{.status = http::status::internal_server_error, .error_message = std::format("[requestLoginParameters] {}", e.what())};
@@ -176,15 +172,13 @@ FuzeHttp::Response requestLoginParameters(shared_state* state, FuzeHttp::Request
 }
 
 FuzeHttp::Response login(shared_state* state, FuzeHttp::Request req) {
-	boost::json::value req_json;
 	boost::json::string username_j, password_hash_base64;
 	bool stay_logged_in;
 	std::cout << "login called" << std::endl;
 	try {
-		req_json = boost::json::parse(req.body());
-		username_j = req_json.at("username").as_string();
-		password_hash_base64 = req_json.at("password_hash_base64").as_string();
-		stay_logged_in = req_json.at("stay_logged_in").as_bool();
+		username_j = req.json().at("username").as_string();
+		password_hash_base64 = req.json().at("password_hash_base64").as_string();
+		stay_logged_in = req.json().at("stay_logged_in").as_bool();
 	}
 	catch(const std::exception& e) {
 		std::cout << "JSON error" << std::endl;
@@ -227,8 +221,8 @@ FuzeHttp::Response login(shared_state* state, FuzeHttp::Request req) {
 }
 
 FuzeHttp::Response logout(shared_state* state, FuzeHttp::Request req) {
-	auto cookie_header = req.find("Cookie");
-	if (cookie_header == req.end())
+	auto cookie_header = req.message.find("Cookie");
+	if (cookie_header == req.message.end())
 		return {};
 	std::string cookie = cookie_header->value();
 	std::string session_id_base64 = cookie.substr(cookie.find("=")+1);
@@ -240,17 +234,15 @@ FuzeHttp::Response logout(shared_state* state, FuzeHttp::Request req) {
 }
 
 FuzeHttp::Response changePassword(shared_state* state, FuzeHttp::Request req) {
-	boost::json::object req_json;
 	boost::json::string username_j, new_password_hash_base64, intermediate_salt_base64, old_password_hash_base64;
 	std::optional<std::string> invite_key;
 	std::optional<int> invite_granted_group_id;
 	std::cout << "changePassword called" << std::endl;
 	try {
-		req_json = boost::json::parse(req.body()).as_object();
-		username_j = req_json.at("username").as_string();
-		intermediate_salt_base64 = req_json.at("intermediate_salt_base64").as_string();
-		new_password_hash_base64 = req_json.at("new_password_hash_base64").as_string();
-		old_password_hash_base64 = req_json.at("old_password_hash_base64").as_string();
+		username_j = req.json().at("username").as_string();
+		intermediate_salt_base64 = req.json().at("intermediate_salt_base64").as_string();
+		new_password_hash_base64 = req.json().at("new_password_hash_base64").as_string();
+		old_password_hash_base64 = req.json().at("old_password_hash_base64").as_string();
 	}
 	catch(const std::exception& e) {
 		std::cerr << "JSON error" << std::endl;

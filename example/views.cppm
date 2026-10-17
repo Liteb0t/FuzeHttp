@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Fuze.page
 // Fuze Human-oriented License v1
 module;
-#include "Request.hpp"
+// #include "Request.hpp"
 #include <boost/beast/http/status.hpp>
 #include <boost/json.hpp>
 #include <iostream>
@@ -11,6 +11,8 @@ export module FuzeHttp.Example.Views;
 import FuzeHttp.Example.State;
 import FuzeHttp.Core;
 import FuzeHttp.PermissionObject;
+import FuzeHttp.Request;
+import FuzeHttp.Response;
 import FuzeHttp.Server;
 import FuzeHttp.Utils;
 import FuzeDBI;
@@ -18,11 +20,11 @@ import FuzeDBI;
 export namespace FuzeHttp::Example {
 FuzeHttp::Response showMainPage(shared_state* state, FuzeHttp::Request req) {
 	// TODO handle target decoding in FuzeHttp
-	std::string target = std::string(FuzeHttp::getPathName(FuzeHttp::getDecodedURL(req.target())).substr(1));
+	std::string target = std::string(FuzeHttp::getPathName(FuzeHttp::getDecodedURL(req.message.target())).substr(1));
 	return {
 		.status = http::status::ok,
 		// .headers = {return_headers},
-		.file = state->getDocumentRoot() / target
+		.file = state->getDocumentRoot() / req.pathName()
 	};
 }
 
@@ -51,7 +53,7 @@ FuzeHttp::Response createGroup(shared_state* state, FuzeHttp::Request req) {
 	boost::json::object group_json;
 	std::string new_group_name;
 	try {
-		group_json = boost::json::parse(req.body()).at("group").as_object();
+		group_json = boost::json::parse(req.message.body()).at("group").as_object();
 		new_group_name = group_json.at("name").as_string();
 	}
 	catch(const std::exception& e) {
@@ -116,7 +118,7 @@ FuzeHttp::Response setGroupHeirarchy(shared_state* state, FuzeHttp::Request req)
 	boost::json::object request_json;
 	std::vector<int> new_group_heirarchy;
 	try {
-		request_json = boost::json::parse(req.body()).as_object();
+		request_json = boost::json::parse(req.message.body()).as_object();
 		for(auto group : request_json.at("new_group_heirarchy").as_array()) {
 			new_group_heirarchy.push_back(group.as_int64());
 		}
@@ -169,7 +171,7 @@ FuzeHttp::Response addGroupsToUser(shared_state* state, FuzeHttp::Request req, i
 	boost::json::object request_json;
 	std::vector<int> groups_to_add;
 	try {
-		request_json = boost::json::parse(req.body()).as_object();
+		request_json = boost::json::parse(req.message.body()).as_object();
 		for(auto group : request_json.at("groups_by_id").as_array()) {
 			groups_to_add.push_back(group.as_int64());
 		}
@@ -231,7 +233,7 @@ FuzeHttp::Response updateServerGroupPermissions(shared_state* state, FuzeHttp::R
 	boost::json::object request_json;
 	int permission_number, permission_setting;
 	try {
-		request_json = boost::json::parse(req.body()).as_object();
+		request_json = boost::json::parse(req.message.body()).as_object();
 		permission_number = request_json["permission"].as_int64();
 		permission_setting = request_json["setting"].as_int64();
 	}
@@ -256,7 +258,7 @@ FuzeHttp::Response updateServerUserPermissions(shared_state* state, FuzeHttp::Re
 	boost::json::object request_json;
 	int permission_number, permission_setting;
 	try {
-		request_json = boost::json::parse(req.body()).as_object();
+		request_json = boost::json::parse(req.message.body()).as_object();
 		permission_number = request_json["permission"].as_int64();
 		permission_setting = request_json["setting"].as_int64();
 	}
@@ -315,7 +317,7 @@ FuzeHttp::Response client(shared_state* state, FuzeHttp::Request req) {
 				{"create_thread", state->clientHasPermission(client, static_cast<int>(PERMISSION::CREATE_THREAD))},
 				{"upload_file", state->clientHasPermission(client, static_cast<int>(PERMISSION::UPLOAD_FILE))}
 			}},
-			{"has_cookie", req.find("Cookie") != req.end()}
+			{"has_cookie", req.message.find("Cookie") != req.message.end()}
 		}}
 	};
 }

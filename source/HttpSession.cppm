@@ -3,8 +3,8 @@
 module;
 #include "beast.hpp"
 // #include "Controller.hpp"
-
 #include <boost/asio.hpp>
+#include <boost/json.hpp>
 #include <boost/optional.hpp>
 #include <boost/smart_ptr.hpp>
 #include <cstdlib>
@@ -14,8 +14,11 @@ module;
 #include <print>
 export module FuzeHttp.HttpSession;
 import FuzeHttp.Controller;
-import FuzeHttp.Core;
+import FuzeHttp.Request;
+import FuzeHttp.Response;
 import FuzeHttp.State;
+import FuzeHttp.Utils;
+
 
 export namespace FuzeHttp {
 // Represents an established HTTP connection
@@ -134,38 +137,18 @@ private:
 		do_read();
 	}
 };
-
+http::message_generator createMessage(Request request, Response basic_res);
 template<class StateType, class WebsocketSessionType>
 http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_request(
 		StateType* state,
 		FuzeHttp::Controller<StateType*>* controller,
-		http::request<http::string_body, http::basic_fields<std::allocator<char>>>&& req) {
-	// Matches paths in urls.cpp
-	FuzeHttp::Response basic_res;
+		http::request<http::string_body, http::basic_fields<std::allocator<char>>>&& req_message) {
+	auto client = state->getClientIfExists(req_message);
+	FuzeHttp::_Request request(std::move(req_message), std::move(client));
 	std::string error_text;
 	try {
-		basic_res = controller->matchPathAndExecute(state, req);
-		std::cout << "[HttpSession] basic_res.status: " << basic_res.status << std::endl;
-		if (basic_res.error_message)
-			std::println("Error message: {}", basic_res.error_message.value());
-		if (basic_res.json || basic_res.body)
-			return FuzeHttp::buildResponse<http::string_body>(basic_res, req);
-		else if (basic_res.file) {
-			// if (!std::filesystem::is_regular_file(basic_res.file.value()))
-			// 	basic_res.file = basic_res.file.value() / "index.html";
-			std::print("Checking if file exists: {}", basic_res.file.value().string());
-			if (!std::filesystem::exists(basic_res.file.value())) {
-				std::println(" - NOT FOUND");
-				error_text = std::format("Target not found: `{}`", std::string(req.target()));
-				return FuzeHttp::buildResponse<http::string_body>(FuzeHttp::Response{.status=http::status::not_found, .error_message=error_text, .body=error_text}, req);
-			}
-			else {
-				std::println(" - it exists :D");
-				return FuzeHttp::buildResponse<http::file_body>(basic_res, req);
-			}
-		}
-		else
-			return FuzeHttp::buildResponse<http::empty_body>(basic_res, req);
+		FuzeHttp::Response basic_res = controller->matchPathAndExecute(state, request);
+		return createMessage(request, basic_res);
 	}
 	catch(const std::exception& e) {
 		error_text = e.what(); }
@@ -176,11 +159,11 @@ http::message_generator HttpSession<StateType, WebsocketSessionType>::handle_req
 	// Codeflow watchamacallit reaches here if an exception was thrown
 	error_text = std::format("An exception was thrown: {}", error_text);
 	std::cerr << error_text << std::endl;
-	basic_res = FuzeHttp::Response{
+	Response error_res = FuzeHttp::Response{
 		.status = http::status::internal_server_error,
 		.error_message = error_text,
 		.body = error_text
 	};
-	return FuzeHttp::buildResponse<http::string_body>(basic_res, req);
+	return createMessage(request, error_res);
 }
 } // namespace FuzeHttp
