@@ -4,6 +4,10 @@ module;
 #include "beast.hpp"
 #include <boost/json.hpp>
 #include <optional>
+#include <unordered_map>
+#include <print>
+#include <ranges>
+#include <string_view>
 export module FuzeHttp.Request;
 import FuzeHttp.Client;
 
@@ -25,11 +29,37 @@ public:
 			_json = boost::json::parse(message.body()).as_object();
 		return _json.value();
 	}
+	const std::unordered_map<std::string_view, std::string_view>& searchParameters() {
+		if (!_search_parameters)
+			_search_parameters = getSearchParameters(_decoded_target);
+		return _search_parameters.value();
+	}
 private:
 	const std::optional<Client> _client;
 	std::string _decoded_target;
 	const std::string_view _pathname;
 	std::optional<boost::json::object> _json;
+	std::optional<std::unordered_map<std::string_view, std::string_view>> _search_parameters;
+	std::unordered_map<std::string_view, std::string_view> getSearchParameters(const std::string& decoded_url) const {
+		std::unordered_map<std::string_view, std::string_view> search_parameters;
+		size_t q_index = decoded_url.rfind('?');
+		if (q_index == std::string::npos)
+			return search_parameters;
+		const std::string_view search = std::string_view(decoded_url).substr(decoded_url.rfind('?')+1);
+		std::println("Search: \"{}\"", search);
+		for (const auto parameter : std::views::split(search, '&')) {
+			std::println("Parameter: {}", parameter);
+			const std::string_view parameter_view = std::string_view(parameter);
+			size_t equals_index = parameter_view.find('=');
+			if (equals_index != std::string::npos) {
+				const std::string_view key = parameter_view.substr(0, equals_index);
+				const std::string_view value = parameter_view.substr(equals_index+1);
+				std::println("{} :: {}", key, value);
+				search_parameters.emplace(key, value);
+			}
+		}
+		return search_parameters;
+	}
 	static char fromHex(char ch) {
 		return std::isdigit(ch) ? ch - '0' : std::tolower(ch) - 'a' + 10;
 	}
